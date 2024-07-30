@@ -1,2 +1,2 @@
 # Large-scale-Ising
-Ising machine in a large-scale
+This repository is the space to design a hierarchical Ising Machine (HIM) for the large-scale Combinatorial Optimization Problems.
