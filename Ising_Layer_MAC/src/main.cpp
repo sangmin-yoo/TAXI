@@ -51,7 +51,8 @@ void run(const cmdline::parser& parser) {
   const double Irange = IsotH-IsotL;
   const double tMAC = parser.get<double>("tMAC");
   // For keeping track of the number of cycles
-  int nMAC = 0;
+  //int nMAC = 0;
+  //int nRand = 0;
   const bool is_realistic = parser.get<bool>("is_realistic");
   //const bool is_realistic = true;
   vector<IsingSolver> solvers;//Vector of IsingSolver: Multiple IsingSolvers are in "solvers"
@@ -76,17 +77,21 @@ void run(const cmdline::parser& parser) {
       Oid = 1;
       break;
   }
-  DMatrix distance_matrix = DMatrix(ifs, RonArr, RoffArr, Rw, BitPrec, cf.size());
-  const std::vector<double> Wd = distance_matrix.getDMatrix(ifs, Oid, is_realistic);
+  DMatrix distance_matrix = DMatrix(ifs, RonArr, RoffArr, RonTr, RoffTr, Rw, BitPrec, cf.size());
+  //const std::vector<double> Wd = distance_matrix.getDMatrix(ifs, Oid, is_realistic);
+  auto ret = distance_matrix.getDMatrix(ifs, Oid, is_realistic);
+  const std::vector<double> Wd = ret.first;
+  const std::vector<double> Wd_Paras = ret.second;
   //const std::vector<double> Wd = distance_matrix.getDMatrix(ifs, Oid, false);
   //from -swidth to swidth+1, add a IsingSolver to solvers by changing cool
   rep(i, -swidth, swidth+1) {
     const double cool = base_cool * pow(base_cool, 0.1 * i);//pow(a,b)=a^b
     if (0 <= cool && cool < 1) {
       if (i == 0) main_solver_idx = solvers.size();
-      IsingSolver solver(cf, size_opt, Wd);
+      //IsingSolver solver(cf, size_opt, Wd);
+      IsingSolver solver(cf, size_opt, Wd, Wd_Paras);
       solver.init(IsingSolver::InitMode::Random, cool, parser.get<double>("update-ratio"), initial_active_ratio,
-      seq_clust, VDD, RonTr, RoffTr, RonArr, RoffArr, IsotL, IsotH, Irange, tMAC, BitPrec, nMAC);
+      seq_clust, VDD, RonTr, RoffTr, RonArr, RoffArr, IsotL, IsotH, Irange, tMAC, BitPrec);
       solvers.push_back(move(solver));
     }
   }
@@ -130,9 +135,13 @@ void run(const cmdline::parser& parser) {
     //cout << main_solver.getCurrentEnergy() << '\n';
   }
   int n_MAC = 0;
+  int n_RandFlip = 0;
   for (auto&& solver : solvers) {
     if (n_MAC < solver.getNumberMAC()) {
       n_MAC = solver.getNumberMAC();
+    }
+    if (n_RandFlip < solver.getNumberRandFlip()) {
+      n_RandFlip = solver.getNumberRandFlip();
     }
   }
   //cout << "[Answer]" << endl;
@@ -141,6 +150,7 @@ void run(const cmdline::parser& parser) {
   Answer ans = mid.getAnswerFromSpin(main_solver.getOptimalSpin());
   ans.output(cout, true);
   cout << "n_MAC " << n_MAC <<'\n';
+  cout << "n_RandFlip " << n_RandFlip <<'\n';
   //cout << "is_answer: " << boolalpha << ans.verify() << endl; 
 }
 cmdline::parser get_command_line_parser() {
@@ -154,15 +164,15 @@ cmdline::parser get_command_line_parser() {
   parser.add<double>("Ron-tr", 'T', "On resistance of transistors", false, 1e4);
   parser.add<double>("Roff-tr", 't', "Off resistance of transistors", false, 1e9);
   parser.add<double>("Rw", 'w', "Parasitic resistance (Wire)", false, 1e3);
-  //parser.add<double>("Ron-Arr", 'A', "On resistance of Memory in the Array", false, 1e5);
-  //parser.add<double>("Ron-Arr", 'A', "On resistance of Memory in the Array", false, 2e5);//69165
-  parser.add<double>("Ron-Arr", 'A', "On resistance of Memory in the Array", false, 1.5e7);
-  parser.add<double>("Roff-Arr", 'a', "Off resistance of Memory in the Array", false, 1e9);
-  parser.add<int>("BitPrec", 'b', "Bit Precision of Memory in the Array", false, 8);
+  parser.add<double>("Ron-Arr", 'A', "On resistance of Memory in the Array", false, 1.2e5);
+  parser.add<double>("Roff-Arr", 'a', "Off resistance of Memory in the Array", false, 1.8e5);
+  //parser.add<double>("Ron-Arr", 'A', "On resistance of Memory in the Array", false, 1.5e7);
+  //parser.add<double>("Roff-Arr", 'a', "Off resistance of Memory in the Array", false, 1e9);
+  parser.add<int>("BitPrec", 'b', "Bit Precision of Memory in the Array", false, 4);
   parser.add<double>("IsotL", 'i', "Lowerbound of variable range in current", false, 4.6e-4);
   parser.add<double>("IsotH", 'I', "Upperbound of variable range in current", false, 5.6e-4);
   parser.add<double>("tMAC", 'm', "time to operate one MAC operation", false, 1e-9);
-  parser.add<bool>("is_realistic", 'B', "Consider parasitic components?", false, false);
+  parser.add<bool>("is_realistic", 'B', "Consider parasitic components?", false, true);
   parser.footer("filename");
   return parser;
 }

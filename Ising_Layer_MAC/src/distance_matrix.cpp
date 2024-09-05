@@ -10,10 +10,11 @@ using namespace std;
 
 // initialize variables by "variable1(variable1 input), variable2(variable2 input)".
 // variable 1 and 2 should be defined in .h file.
-DMatrix::DMatrix(std::istream& is, const double RonArr, const double RoffArr, const double Rw, const int BitPrec, const int ArrSize)
-  : DtoR_ratio(1), input_path(is), RonArr(RonArr), RoffArr(RoffArr), Rw(Rw), BitPrec(BitPrec), ArrSize(ArrSize){}
+DMatrix::DMatrix(std::istream& is, const double RonArr, const double RoffArr, const double RonTr, const double RoffTr, const double Rw, const int BitPrec, const int ArrSize)
+  : DtoR_ratio(1), input_path(is), RonArr(RonArr), RoffArr(RoffArr), RonTr(RonTr), RoffTr(RoffTr), Rw(Rw), BitPrec(BitPrec), ArrSize(ArrSize){}
 DMatrix::~DMatrix() {}
-std::vector<double> DMatrix::getDMatrix(std::istream& is, const int Oid, const bool is_realistic) {
+//std::vector<double> DMatrix::getDMatrix(std::istream& is, const int Oid, const bool is_realistic) {
+std::pair<std::vector<double>, std::vector<double>> DMatrix::getDMatrix(std::istream& is, const int Oid, const bool is_realistic) {
   is.clear();
   is.seekg(1);
   int nCity = sqrt(ArrSize);
@@ -50,20 +51,6 @@ std::vector<double> DMatrix::getDMatrix(std::istream& is, const int Oid, const b
       }
     }
   }
-  /*
-  cout << "##############" << '\n';
-  cout << DistMax << '\n';
-  cout << "##############" << '\n';
-  cout << "Rm" << '\n';
-  rep (i, 0, nCity){
-    rep (j, 0, nCity){
-      cout << Rm[i][j] << " ";
-    }
-    cout << '\n';
-  }
-  cout << "##############" << '\n';
-  cout << "Gm" << '\n';
-  */
   // Normalize, flip (R to G), and quantize the distance
   vector<int> Grow(nCity, 0);
   vector<vector<int>> Gm(nCity, Grow);
@@ -79,21 +66,6 @@ std::vector<double> DMatrix::getDMatrix(std::istream& is, const int Oid, const b
       Gm[i][j] = floor(((DistMax - Rm[i][j])/(DistMax-DistMin))*FullPrec);
     }
   }
-  //std::vector<double> BWC;
-  //rep(i,nCity) rep(j,nCity) {
-  //  BWC.push_back(Gm[i][j]);
-  //}
-  /*
-  rep (i, 0, nCity){
-    rep (j, 0, nCity){
-      cout << Gm[i][j] << " ";
-    }
-    cout << '\n';
-  }
-  cout << "##############" << '\n';
-  cout << "BW" << '\n';
-  */
-  
   // Mapping the quantized Distances onto (BitPrec) of binary arrays considering the parasitic resistance according to each position.
   std::vector<int> BW (ArrSize*BitPrec);
   //BW.reserve(ArrSize*BitPrec);
@@ -103,31 +75,22 @@ std::vector<double> DMatrix::getDMatrix(std::istream& is, const int Oid, const b
       Gm[i][j] = Gm[i][j]/2;
     }
   }
-
-  /*
-  rep(b,BitPrec) {
-    cout << b << "bit \n";
-    rep(i,nCity) {
-      rep(j,nCity) {
-        cout << BW[b*ArrSize + i*nCity + j];
-      }
-      cout << "\n";
-    }
-    cout << "##############" << '\n';
-  }
-  */
-  
   double GLow = 1/RoffArr;
   double GHigh = 1/RonArr;
   std::vector<double> BWC;
+  std::vector<double> BWC_Paras;
   if (is_realistic) {
     rep(b,BitPrec) {
       rep(i,nCity) rep(j,nCity) {
         if (BW[b*ArrSize + i*nCity + j]==1) {
-          BWC.push_back(pow(2,b)*1/(RonArr+Rw*(i+nCity-1-j)));
+          //BWC.push_back(pow(2,b)*1/(RonArr+Rw*(i+nCity-1-j)));
+          BWC.push_back(pow(2,b)*1/(RonTr+RonArr+Rw*(i+nCity-1-j)));
+          BWC_Paras.push_back(pow(2,b)*1/(RoffTr+RonArr+Rw*(i+nCity-1-j)));
         }
         else {
-          BWC.push_back(pow(2,b)*1/(RoffArr+Rw*(i+nCity-1-j)));
+          //BWC.push_back(pow(2,b)*1/(RoffArr+Rw*(i+nCity-1-j)));
+          BWC.push_back(pow(2,b)*1/(RonTr+RoffArr+Rw*(i+nCity-1-j)));
+          BWC_Paras.push_back(pow(2,b)*1/(RoffTr+RoffArr+Rw*(i+nCity-1-j)));
         }
       }
     }
@@ -144,18 +107,5 @@ std::vector<double> DMatrix::getDMatrix(std::istream& is, const int Oid, const b
       }
     }
   }
-  
-  /*
-  rep(b,BitPrec) {
-    cout << b << "bit \n";
-    rep(i,nCity) {
-      rep(j,nCity) {
-        cout << BWC[b*ArrSize + i*nCity + j] << " ";
-      }
-      cout << "\n";
-    }
-    cout << "##############" << '\n';
-  }
-  */
-  return BWC;
+  return make_pair(BWC, BWC_Paras);
 }
