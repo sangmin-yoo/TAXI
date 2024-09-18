@@ -11,15 +11,16 @@
 // s := current_spin
 // s_i: {-1, 1}
 class IsingSolver {
-  int steps, total_step, seq_clust, BitPrec, nMAC, nRAND;
-  double cool_coe, update_ratio, Imid, dRtr, VDD, RonTr, RoffTr, IsotL, IsotH, Irange, tMAC, RonArr, RoffArr;
+  int steps, total_step, seq_clust, BitPrec, nMAC, nRAND, Patience;
+  double cool_coe, update_ratio, Imid, dRtr, VDD, RonTr, RoffTr, RonArr, RoffArr, Icool, Factor, Threshold, init_Irand, Istop;
   std::mt19937 rnd;
   RandomSelector random_selector;
   double active_ratio; // temp: [0, 1]
   const CostFunction cf;
   const std::vector<double> Wd;
   const std::vector<double> Wd_Paras;
-  double Hmin, H_B;
+  double Hmax, H_B;
+  int PlateauCNT;
   std::vector<int> OptSpins, current_spin, optimal_spin;
   Weight calcEnergyDiff(const std::vector<int>& spin, const int node_id) const;
   // H minimization using MAC operations
@@ -28,10 +29,11 @@ class IsingSolver {
   void HminMAC();
   // MAC Operation for Energy-minimization
   std::vector<int> MAC_wo_Randomness_parallel(std::vector<int> Rids, std::vector<int> AvailableSpins, const bool forward_path);
-  //int MAC_wo_Randomness(const int Rid, std::vector<int> AvailableSpins, const bool forward_path);
-  int MAC_wo_Randomness(const int Rid, std::vector<int> AvailableSpins);
+  int MAC_wo_Randomness(const int Rid, std::vector<int> AvailableSpins, const bool forward_path);
+  //int MAC_wo_Randomness(const int Rid, std::vector<int> AvailableSpins);
   int MAC(const int Rid, std::vector<int> AvailableSpins, const bool forward_path);
   void SwapSpinsViolated(const int Seq_curr, const int Cid);
+  double calcHbyMAC();
   // active_ratio randomly according to current_spin invert
   void randomFlip();
   void randomFlip_MRAM();
@@ -39,9 +41,10 @@ class IsingSolver {
   std::vector<int> SyncNodes(const std::vector<int> node_ids);
   // tempLower
   void cool();
+  void cooling_rate_scheduler();
   // If you find a better solution optimal_spin Update
   void updateOptimalSpin();
-  int calcTotalStep(double initial_active_ratio) const;
+  int calcTotalStep(double initial_active_ratio, double init_Irand) const;
 public:
   enum InitMode {
     Negative, Positive, Random
@@ -51,6 +54,7 @@ public:
   Weight getCurrentEnergy() const;
   int getNumberMAC() const;
   int getNumberRandFlip() const;
+  double getImid() const;
   Weight getOptimalEnergy() const; // However, it is calculated by the current objective function
   Weight calcEnergy(const std::vector<int>& spin) const;
   const std::vector<int>& SpinsToOptimize() const;
@@ -59,9 +63,9 @@ public:
   void setCurrentSpin(const std::vector<int>& new_spin);
   void step();
   void init(const InitMode mode, const double cool_coe, const double update_ratio, const double initial_active_ratio, const int seq_clust, const double VDD,
-    const double RonTr, const double RoffTr, const double RonArr, const double RoffArr, const double IsotL, const double IsotH, const double Irange, const double tMAC, const int BitPrec);
+    const double RonTr, const double RoffTr, const double RonArr, const double RoffArr, const int BitPrec, const double Factor, const double Threshold, const int Patience, double init_Irand);
   void init(const InitMode mode, const int seed, const double cool_coe, const double update_ratio, const double initial_active_ratio, const int seq_clust, const double VDD,
-    const double RonTr, const double RoffTr, const double RonArr, const double RoffArr, const double IsotL, const double IsotH, const double Irange, const double tMAC, const int BitPrec);
+    const double RonTr, const double RoffTr, const double RonArr, const double RoffArr, const int BitPrec, const double Factor, const double Threshold, const int Patience, double init_Irand);
   size_t getActiveNodeCount() const;
   size_t getUpdateNodeCount() const;
   size_t size() const;

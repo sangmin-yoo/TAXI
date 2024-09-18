@@ -46,15 +46,23 @@ void run(const cmdline::parser& parser) {
   const double VDD = parser.get<double>("VDD");
   const double RonTr = parser.get<double>("Ron-tr");
   const double RoffTr = parser.get<double>("Roff-tr");
-  const double IsotL = parser.get<double>("IsotL");
-  const double IsotH = parser.get<double>("IsotH");
-  const double Irange = IsotH-IsotL;
-  const double tMAC = parser.get<double>("tMAC");
+  //const double IsotL = parser.get<double>("IsotL");
+  //const double IsotH = parser.get<double>("IsotH");
+  //const double Irange = IsotH-IsotL;
+  //const double tMAC = parser.get<double>("tMAC");
+  const double Factor = parser.get<double>("Factor");
+  const double Threshold = parser.get<double>("Threshold");
+  const int Patience = parser.get<int>("Patience");
+  const double init_Irand = parser.get<double>("init_Irand");
+  //Stop Ising Solver when stochastic probability reaches 1%
+  const double Istop = -log(100/1-1)+50;
+  //Stop Ising Solver when stochastic probability reaches 2%
+  //const double Iterminate = -log(100/2-1)+init_Irand
+
   // For keeping track of the number of cycles
   //int nMAC = 0;
   //int nRand = 0;
-  const bool is_realistic = parser.get<bool>("is_realistic");
-  //const bool is_realistic = true;
+  const bool is_realistic = true;
   vector<IsingSolver> solvers;//Vector of IsingSolver: Multiple IsingSolvers are in "solvers"
   int main_solver_idx = -1;
   int size_opt;
@@ -88,10 +96,9 @@ void run(const cmdline::parser& parser) {
     const double cool = base_cool * pow(base_cool, 0.1 * i);//pow(a,b)=a^b
     if (0 <= cool && cool < 1) {
       if (i == 0) main_solver_idx = solvers.size();
-      //IsingSolver solver(cf, size_opt, Wd);
       IsingSolver solver(cf, size_opt, Wd, Wd_Paras);
       solver.init(IsingSolver::InitMode::Random, cool, parser.get<double>("update-ratio"), initial_active_ratio,
-      seq_clust, VDD, RonTr, RoffTr, RonArr, RoffArr, IsotL, IsotH, Irange, tMAC, BitPrec);
+      seq_clust, VDD, RonTr, RoffTr, RonArr, RoffArr, BitPrec, Factor, Threshold, Patience, init_Irand);
       solvers.push_back(move(solver));
     }
   }
@@ -102,11 +109,10 @@ void run(const cmdline::parser& parser) {
   const IsingSolver& main_solver = solvers[main_solver_idx];
   // solve
   bool is_detail = parser.exist("detail");
-  const int ExtraStepCount = 10;
   bool is_first = true;
 
-  //while (main_solver.getStep() < main_solver.getTotalStep()+ExtraStepCount) {
-  while (main_solver.getStep() < 1.5*(main_solver.getTotalStep()+ExtraStepCount)) {
+  while (main_solver.getStep() < main_solver.getTotalStep()) {
+  //while (main_solver.getStep() < 2*(main_solver.getTotalStep())) {
     if (!is_first) {
       for (auto&& solver : solvers) {
         solver.step();
@@ -133,6 +139,7 @@ void run(const cmdline::parser& parser) {
     //cout << "is_answer: " << boolalpha << ans.verify() << endl;
     //cout << endl;
     //cout << main_solver.getCurrentEnergy() << '\n';
+    if (main_solver.getImid() < Istop) break;
   }
   int n_MAC = 0;
   int n_RandFlip = 0;
@@ -155,7 +162,8 @@ void run(const cmdline::parser& parser) {
 }
 cmdline::parser get_command_line_parser() {
   cmdline::parser parser;
-  parser.add<double>("cool", 'c', "coefficient of cooling", false, 0.999);
+  //parser.add<double>("cool", 'c', "coefficient of cooling", false, 0.999);
+  parser.add<double>("cool", 'c', "coefficient of cooling", false, 0.001);
   parser.add<double>("update-ratio", 'u', "the ratio of nodes to update in 1 step", false, 0.3);
   parser.add<int>("grid", 'g', "width and height of the grid", false, 8);
   parser.add<int>("swidth", 's', "the max number of sub solvers / 2", false, 2);
@@ -166,13 +174,14 @@ cmdline::parser get_command_line_parser() {
   parser.add<double>("Rw", 'w', "Parasitic resistance (Wire)", false, 1e3);
   parser.add<double>("Ron-Arr", 'A', "On resistance of Memory in the Array", false, 1.2e5);
   parser.add<double>("Roff-Arr", 'a', "Off resistance of Memory in the Array", false, 1.8e5);
-  //parser.add<double>("Ron-Arr", 'A', "On resistance of Memory in the Array", false, 1.5e7);
-  //parser.add<double>("Roff-Arr", 'a', "Off resistance of Memory in the Array", false, 1e9);
   parser.add<int>("BitPrec", 'b', "Bit Precision of Memory in the Array", false, 4);
-  parser.add<double>("IsotL", 'i', "Lowerbound of variable range in current", false, 4.6e-4);
-  parser.add<double>("IsotH", 'I', "Upperbound of variable range in current", false, 5.6e-4);
-  parser.add<double>("tMAC", 'm', "time to operate one MAC operation", false, 1e-9);
-  parser.add<bool>("is_realistic", 'B', "Consider parasitic components?", false, true);
+  //parser.add<double>("IsotL", 'i', "Lowerbound of variable range in current", false, 4.6e-4);
+  //parser.add<double>("IsotH", 'I', "Upperbound of variable range in current", false, 5.6e-4);
+  //parser.add<double>("tMAC", 'm', "time to operate one MAC operation", false, 1e-9);
+  parser.add<double>("init_Irand", 'I', "Initial I for the Stochastic operations [unit: mA]", false, 48);
+  parser.add<double>("Factor", 'F', "Factor for the cooling scheduler", false, 0.99);
+  parser.add<double>("Threshold", 'D', "Threshold for the cooling scheduler", false, 1e-4);
+  parser.add<int>("Patience", 'P', "Patience for the cooling scheduler", false, 5);
   parser.footer("filename");
   return parser;
 }

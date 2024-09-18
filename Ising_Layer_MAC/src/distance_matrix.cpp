@@ -62,8 +62,8 @@ std::pair<std::vector<double>, std::vector<double>> DMatrix::getDMatrix(std::ist
     }
     else {
       //Gm[i][j] = floor((1 - Rm[i][j]/DistMax)*FullPrec);
-      //Gm[i][j] = floor((DistMin/Rm[i][j])*FullPrec);
-      Gm[i][j] = floor(((DistMax - Rm[i][j])/(DistMax-DistMin))*FullPrec);
+      Gm[i][j] = floor((DistMin/Rm[i][j])*FullPrec);
+      //Gm[i][j] = floor(((DistMax - Rm[i][j])/(DistMax-DistMin))*FullPrec);
     }
   }
   // Mapping the quantized Distances onto (BitPrec) of binary arrays considering the parasitic resistance according to each position.

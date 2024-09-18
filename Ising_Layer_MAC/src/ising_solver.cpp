@@ -18,18 +18,19 @@ Edge::Edge(int to, Weight weight) : to(to), weight(weight) {}
 IsingSolver::IsingSolver(const CostFunction& cf, const int size_opt, const std::vector<double> Wd, const std::vector<double> Wd_Paras)
   : steps(0), total_step(0),
     random_selector(size_opt), active_ratio(0), cf(cf),
-    Wd(Wd), Wd_Paras(Wd_Paras), Hmin(INFINITY), H_B(0) {}
+    Wd(Wd), Wd_Paras(Wd_Paras), Hmax(0), H_B(0) {}
     
-int IsingSolver::calcTotalStep(double initial_active_ratio) const {
+int IsingSolver::calcTotalStep(double initial_active_ratio, double init_Irand) const {
   // return n s.t. initial_active_ratio * size() * cool_coe^n < 1
   //double n = - (log(initial_active_ratio) + log(size())) / log(cool_coe);
-  double n = - (log(initial_active_ratio) + log(size_opt())) / log(cool_coe);
+  //double n = - (log(initial_active_ratio) + log(size_opt())) / log(cool_coe);
+  //double n = - 6800*(log(initial_active_ratio) + log(size_opt())) / log(cool_coe);
+  double n = (init_Irand-Istop)/cool_coe;
   assert(n >= 0);
   return int(ceil(n));
 }
-
 void IsingSolver::init(const IsingSolver::InitMode mode, const int seed, const double cool_coe, const double update_ratio, const double initial_active_ratio, const int seq_clust,
-  const double VDD, const double RonTr, const double RoffTr, const double RonArr, const double RoffArr, const double IsotL, const double IsotH, const double Irange, const double tMAC, const int BitPrec) {
+  const double VDD, const double RonTr, const double RoffTr, const double RonArr, const double RoffArr, const int BitPrec, const double Factor, const double Threshold, const int Patience, double init_Irand) {
   assert(0 <= cool_coe && cool_coe < 1);
   assert(0 <= update_ratio && update_ratio <= 1);
   rnd.seed(seed);
@@ -38,25 +39,30 @@ void IsingSolver::init(const IsingSolver::InitMode mode, const int seed, const d
   this->steps = 0;
   this->active_ratio = initial_active_ratio;
   this->seq_clust = seq_clust;
-  this->total_step = calcTotalStep(initial_active_ratio);
   
   this->VDD = VDD;
   this->RonTr = RonTr;
   this->RoffTr = RoffTr;
-  this->IsotL = IsotL;
-  this->IsotH = IsotH;
-  this->Irange = Irange;
-  this->tMAC = tMAC;
   this->BitPrec = BitPrec;
   
   this->dRtr = RoffTr - RonTr;
   
   this->RonArr = RonArr;
   this->RoffArr = RoffArr;
-  
+
+  this->Factor = Factor;
+  this->Threshold = Threshold;
+  this->Patience = Patience;
+
   nMAC = 0;
   nRAND = 0;
-  Imid = 48;
+  PlateauCNT = 0;
+  Imid = init_Irand;
+  Icool = cool_coe;
+  Istop = -log(100/1-1)+50;
+
+  this->total_step = calcTotalStep(initial_active_ratio, init_Irand);
+
   switch (mode) {
     case Negative:
       current_spin.assign(size(), -1);
@@ -78,7 +84,6 @@ void IsingSolver::init(const IsingSolver::InitMode mode, const int seed, const d
   switch (seq_clust) {
     case 0: // The topmost cluster
       rep(i, map_size()) {
-      //rep(i, 1, map_size()) {
         OptSpins.push_back(i);
       }
       break;
@@ -139,18 +144,14 @@ void IsingSolver::init(const IsingSolver::InitMode mode, const int seed, const d
   }*/
   optimal_spin = current_spin;
 }
-
 void IsingSolver::init(const IsingSolver::InitMode mode, const double cool_coe, const double update_ratio, const double initial_active_ratio, const int seq_clust,
-  const double VDD, const double RonTr, const double RoffTr, const double RonArr, const double RoffArr, const double IsotL, const double IsotH, const double Irange, const double tMAC, const int BitPrec) {
+  const double VDD, const double RonTr, const double RoffTr, const double RonArr, const double RoffArr, const int BitPrec, const double Factor, const double Threshold, const int Patience, double init_Irand) {
   random_device rd;
-  init(mode, rd(), cool_coe, update_ratio, initial_active_ratio, seq_clust, VDD, RonTr, RoffTr, RonArr, RoffArr, IsotL, IsotH, Irange, tMAC, BitPrec);
+  init(mode, rd(), cool_coe, update_ratio, initial_active_ratio, seq_clust, VDD, RonTr, RoffTr, RonArr, RoffArr, BitPrec, Factor, Threshold, Patience, init_Irand);
 }
-
 void IsingSolver::HminMAC_wo_Randomness_parallel() {
   bool forward_path;
   forward_path = (OptSpins[0] == 1)? true : false;
-  double H_B_prev;
-  H_B_prev = getCurrentEnergy();
   std::vector<int> prev_spin;
   prev_spin = current_spin;
 
@@ -172,33 +173,18 @@ void IsingSolver::HminMAC_wo_Randomness_parallel() {
     int cnt = count(DDSpins.begin(), DDSpins.end(), i);
     if (cnt == 0) AvailableSpins2.push_back(OptSpins[i]);
   }
-
   DDSpins = MAC_wo_Randomness_parallel(odd_order, AvailableSpins2, forward_path);
-  /*if (getCurrentEnergy() >= H_B_prev) {//retract
-    current_spin = prev_spin;
-  }
-  else {//accept
-    H_B_prev = getCurrentEnergy();
-    prev_spin = current_spin;
-  }*/
 }
 void IsingSolver::HminMAC_wo_Randomness() {
   std::vector<int> AvailableSpins;
-
   for (int spin : OptSpins){
     AvailableSpins.push_back(spin);
   }
-  
-  //bool forward_path;
-  //forward_path = (OptSpins[0] == 1)? true : false;
-  double H_B_prev;
-  //H_B_prev = H_B;
-  H_B_prev = getCurrentEnergy();
-  std::vector<int> prev_spin;
-  prev_spin = current_spin;
+  bool forward_path = (OptSpins[0] <= 1)? true : false;
+  //std::vector<int> prev_spin;
+  //prev_spin = current_spin;
   //H_B = 0;
   int erase_spin;
-
   for (int Order: OptSpins) {
     if (AvailableSpins.size() == 1) {
       //SwapSpinsViolated(Order*map_size(), AvailableSpins[0]);
@@ -208,10 +194,11 @@ void IsingSolver::HminMAC_wo_Randomness() {
       current_spin[Order*map_size()+AvailableSpins[0]] = 1;
       break;
     }
-    //erase_spin = MAC_wo_Randomness(Order, AvailableSpins, forward_path);
-    erase_spin = MAC_wo_Randomness(Order, AvailableSpins);
+    erase_spin = MAC_wo_Randomness(Order, AvailableSpins, forward_path);
+    //erase_spin = MAC_wo_Randomness(Order, AvailableSpins);
     AvailableSpins.erase(AvailableSpins.begin()+erase_spin);
     /*if (getCurrentEnergy() >= H_B_prev) {//retract
+    
       current_spin = prev_spin;
     }
     else {//accept
@@ -220,15 +207,7 @@ void IsingSolver::HminMAC_wo_Randomness() {
       AvailableSpins.erase(AvailableSpins.begin()+erase_spin);
     }*/
   }
-  /*if (getCurrentEnergy() >= H_B_prev) {//retract
-    current_spin = prev_spin;
-  }
-  else {//accept
-    H_B_prev = getCurrentEnergy();
-    prev_spin = current_spin;
-  }*/
 }
-
 void IsingSolver::HminMAC() {
   std::vector<int> AvailableSpins;
 
@@ -248,7 +227,6 @@ void IsingSolver::HminMAC() {
 
   for (int Order: OptSpins) {
     if (AvailableSpins.size() == 1) {
-      //SwapSpinsViolated(Order*map_size(), AvailableSpins[0]);
       rep (i, map_size()) {
         current_spin[Order*map_size()+i] = -1;
       }
@@ -257,22 +235,7 @@ void IsingSolver::HminMAC() {
     }
     erase_spin = MAC(Order, AvailableSpins, forward_path);
     AvailableSpins.erase(AvailableSpins.begin()+erase_spin);
-    /*if (getCurrentEnergy() >= H_B_prev) {//retract
-      current_spin = prev_spin;
-    }
-    else {//accept
-      H_B_prev = getCurrentEnergy();
-      prev_spin = current_spin;
-      AvailableSpins.erase(AvailableSpins.begin()+erase_spin);
-    }*/
   }
-  /*if (getCurrentEnergy() >= H_B_prev) {//retract
-    current_spin = prev_spin;
-  }
-  else {//accept
-    H_B_prev = getCurrentEnergy();
-    prev_spin = current_spin;
-  }*/
 }
 std::vector<int> IsingSolver::MAC_wo_Randomness_parallel(std::vector<int> Rids, std::vector<int> AvailableSpins, const bool forward_path) {
   // Rid & Cid : Row (visitng order) & Column (city) index
@@ -345,8 +308,8 @@ std::vector<int> IsingSolver::MAC_wo_Randomness_parallel(std::vector<int> Rids, 
   }
   return DeleteSpins;
 }
-//int IsingSolver::MAC_wo_Randomness(const int Rid, std::vector<int> AvailableSpins, const bool forward_path) {
-int IsingSolver::MAC_wo_Randomness(const int Rid, std::vector<int> AvailableSpins) {
+int IsingSolver::MAC_wo_Randomness(const int Rid, std::vector<int> AvailableSpins, const bool forward_path) {
+//int IsingSolver::MAC_wo_Randomness(const int Rid, std::vector<int> AvailableSpins) {
   // Rid & Cid : Row (visitng order) & Column (city) index
   //Rid Should be between 1 and map_size()-2
   double Iout = 0;
@@ -354,6 +317,8 @@ int IsingSolver::MAC_wo_Randomness(const int Rid, std::vector<int> AvailableSpin
   double Inext = 0;
   double Iparas = 0;
   double MAX = 0;
+  double MAX_prev = 0;
+  double MAX_next = 0;
   int Cid = 0;
   int Seq_prev = (Rid-1)*map_size();
   int Seq_curr = Rid * map_size();
@@ -373,49 +338,39 @@ int IsingSolver::MAC_wo_Randomness(const int Rid, std::vector<int> AvailableSpin
       else if (Rid == map_size()-1) Iparas += (map_size()-1)*Wd_Paras[B*size()+i*map_size() + col];
       else Iparas += (map_size()-2)*Wd_Paras[B*size()+i*map_size() + col];
     }
-    /*rep(i, map_size()){
-      if (Rid > 0) Iprev += (((current_spin[Seq_prev + i]+1)/2) * Wd[i*map_size() + col]);
-      if (Rid < map_size()-1) Inext += (((current_spin[Seq_next + i]+1)/2) * Wd[i*map_size() + col]);
-      //if (forward_path) {
-      //  Iprev += (((current_spin[Seq_prev + i]+1)/2) * Wd[i*map_size() + col]);
-      //}
-      //else Inext += (((current_spin[Seq_next + i]+1)/2) * Wd[i*map_size() + col]);
-    }*/
     if (Rid == 0) {
-      //Iout = 2*Inext;
-      Iout = 2*(Inext+Iparas);
+      //Iout = 2*(Inext+Iparas);
+      Iout = 2*Inext + Iparas;
     }
     else if (Rid == map_size()-1) {
-      //Iout = 2*Iprev;
-      Iout = 2*(Iprev+Iparas);
+      //Iout = 2*(Iprev+Iparas);
+      Iout = 2*Iprev + Iparas;
     }
-    else Iout = Iprev+Inext;
-    //Iout = Iprev + Inext;
-    //if (current_spin[Seq_curr+col] != 1) Iout = Iout - 255;
-    if (current_spin[Seq_curr+col] != 1) Iout = Iout - Isub();
-    //cout << "Iout: " << Iout << " rand(): " << rand()%100 << " Sigm: " << 100/(1+exp(-(Iout-255)/42)) << " Iprev: " << Iprev << " Inext: " << Inext << '\n';
+    else Iout = Iprev+Inext+Iparas;
+    //if (current_spin[Seq_curr+col] != 1) Iout = Iout - Isub();
+    if (current_spin[Seq_curr+col] == 1) Iout = Iout + Isub();
     if (MAX < Iout) {
       MAX = Iout;
+      MAX_prev = Iprev+Iparas;
+      MAX_next = Inext+Iparas;
       Cid = col;
       erase_id = for_id;
     }
     ++for_id;
     Iprev = 0;
     Inext = 0;
+    Iparas = 0;
   }
   ++nMAC;
   /*if (forward_path) {
-    H_B += MAX_prev;
-    if (Rid == map_size()-2) {
-      H_B += MAX_next;
-    }
+    if (Rid < map_size() -2) H_B += MAX_prev;
+    else if (Rid == map_size()-2) H_B += MAX_prev + MAX_next;
   }
   else {
-    H_B += MAX_next;
-    if (Rid == 1) {
-      H_B += MAX_prev;
-    }
+    if (Rid > 1) H_B += MAX_next;
+    else if (Rid == 1) H_B += MAX_next + MAX_prev;
   }*/
+  //H_B += MAX;
   rep (i, map_size()) {
     current_spin[Seq_curr+i] = -1;
   }
@@ -423,7 +378,6 @@ int IsingSolver::MAC_wo_Randomness(const int Rid, std::vector<int> AvailableSpin
   
   return erase_id;
 }
-
 int IsingSolver::MAC(const int Rid, std::vector<int> AvailableSpins, const bool forward_path) {
   // Rid & Cid : Row (visitng order) & Column (city) index
   //Rid Should be between 1 and map_size()-2
@@ -482,6 +436,29 @@ int IsingSolver::MAC(const int Rid, std::vector<int> AvailableSpins, const bool 
   
   return erase_id;
 }
+double IsingSolver::calcHbyMAC() {
+  double Charge = 0;
+  int order_prev;
+  int order_next;
+  int city_prev;
+  int city_next;
+
+  rep(y, map_size()-1) {
+    order_prev = y*map_size();
+    order_next = (y+1)*map_size();
+
+    rep(x, map_size()) {
+      if (current_spin[order_prev+x] == 1) city_prev = x;
+    }
+    rep(x, map_size()) {
+      if (current_spin[order_next+x] == 1) city_next = city_prev*map_size() + x;
+    }
+    rep(B, BitPrec) {
+      Charge += Wd[B*size()+city_next];
+    }
+  }
+  return Charge;
+}
 void IsingSolver::SwapSpinsViolated(const int Seq_curr, const int Cid) {
   int Rid2=0;
   int Cid2=0;
@@ -504,7 +481,6 @@ void IsingSolver::SwapSpinsViolated(const int Seq_curr, const int Cid) {
     }
   }
 }
-
 void IsingSolver::randomFlip() {
   vector<int> node_ids = random_selector.select(getActiveNodeCount(), rnd);
   node_ids = SyncNodes(node_ids);
@@ -562,12 +538,33 @@ std::vector<int> IsingSolver::SyncNodes(std::vector<int> node_ids) {
 }
 void IsingSolver::cool() {
   //active_ratio *= cool_coe;
-  Imid -= 0.001;
+  Imid -= Icool;
+  //Imid -= (50-Imid)*Icool;
+  //Imid *= Icool;
+}
+void IsingSolver::cooling_rate_scheduler(){
+  //if (steps%Patience == Patience-1) Icool *= Factor;
+  double Hcurr = getCurrentEnergy();
+  if (H_B - Hcurr < Threshold) ++PlateauCNT;
+  if (PlateauCNT >= Patience) {
+    //Icool -= Factor;
+    Icool *= Factor;
+    PlateauCNT = 0;
+  }
+  H_B = Hcurr;
 }
 void IsingSolver::updateOptimalSpin() {
   if (getCurrentEnergy() < getOptimalEnergy()) {
     optimal_spin = current_spin;
   }
+  //cout << "Hmax: " << Hmax << '\n';
+  //cout << "H_B: " << H_B << '\n';
+  //double Hcurr = calcHbyMAC();
+  //cout << "Hcurr: " << Hcurr << '\n';
+  //if (Hmax > H_B) {
+  //  Hmax = H_B;
+  //  optimal_spin = current_spin;
+  //}
 }
 void IsingSolver::step() {
   cool();
@@ -581,6 +578,7 @@ void IsingSolver::step() {
   HminMAC_wo_Randomness();
   //HminMAC();
   updateOptimalSpin();
+  cooling_rate_scheduler();
   ++steps;
 }
 size_t IsingSolver::getActiveNodeCount() const {
@@ -615,6 +613,7 @@ int IsingSolver::size_opt() const {
 double IsingSolver::Isub() const {
   //return (pow(2,BitPrec)-1)/RonArr;
   return (pow(2,BitPrec)-1)*(1/(RonArr+RonTr) + (map_size()-2)/(RonArr+RoffTr));
+  //return (pow(2,(BitPrec-1))-1)*(2/(RonArr+RonTr) + (map_size()-2)/(RonArr+RoffTr));
 }
 Weight IsingSolver::calcEnergy(const std::vector<int>& spin) const {
   return cf.calcEnergy(getCurrentPer(), spin);
@@ -633,6 +632,9 @@ int IsingSolver::getNumberMAC() const {
 }
 int IsingSolver::getNumberRandFlip() const {
   return nRAND;
+}
+double IsingSolver::getImid() const {
+  return Imid;
 }
 const vector<int>& IsingSolver::SpinsToOptimize() const{
   return OptSpins;
