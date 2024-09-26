@@ -97,8 +97,9 @@ void run(const cmdline::parser& parser) {
     if (0 <= cool && cool < 1) {
       if (i == 0) main_solver_idx = solvers.size();
       IsingSolver solver(cf, size_opt, Wd, Wd_Paras);
-      solver.init(IsingSolver::InitMode::Random, cool, parser.get<double>("update-ratio"), initial_active_ratio,
-      seq_clust, VDD, RonTr, RoffTr, RonArr, RoffArr, BitPrec, Factor, Threshold, Patience, init_Irand);
+      //solver.init(IsingSolver::InitMode::Random, cool, parser.get<double>("update-ratio"), initial_active_ratio,
+      solver.init(IsingSolver::InitMode::Random, cool, initial_active_ratio,
+      seq_clust, VDD, RonTr, RoffTr, RonArr, RoffArr, Rw, BitPrec, Factor, Threshold, Patience, init_Irand);
       solvers.push_back(move(solver));
     }
   }
@@ -168,7 +169,7 @@ cmdline::parser get_command_line_parser() {
   parser.add<int>("grid", 'g', "width and height of the grid", false, 8);
   parser.add<int>("swidth", 's', "the max number of sub solvers / 2", false, 2);
   parser.add("detail", 'd', "print log in detail");
-  parser.add<double>("VDD", 'v', "Supply voltage", false, 1.5);
+  parser.add<double>("VDD", 'v', "Supply voltage", false, 1.0);
   parser.add<double>("Ron-tr", 'T', "On resistance of transistors", false, 1e4);
   parser.add<double>("Roff-tr", 't', "Off resistance of transistors", false, 1e9);
   parser.add<double>("Rw", 'w', "Parasitic resistance (Wire)", false, 1e3);

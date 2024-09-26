@@ -83,14 +83,21 @@ std::pair<std::vector<double>, std::vector<double>> DMatrix::getDMatrix(std::ist
     rep(b,BitPrec) {
       rep(i,nCity) rep(j,nCity) {
         if (BW[b*ArrSize + i*nCity + j]==1) {
-          //BWC.push_back(pow(2,b)*1/(RonArr+Rw*(i+nCity-1-j)));
-          BWC.push_back(pow(2,b)*1/(RonTr+RonArr+Rw*(i+nCity-1-j)));
-          BWC_Paras.push_back(pow(2,b)*1/(RoffTr+RonArr+Rw*(i+nCity-1-j)));
+          //BWC.push_back(pow(2,b)*1/(RonTr+RonArr+Rw*(i+nCity-1-j)));
+          //BWC_Paras.push_back(pow(2,b)*1/(RoffTr+RonArr+Rw*(i+nCity-1-j)));
+          
+          //BWC.push_back(pow(2,b)*1/(RonTr+RonArr+Rw*(i+nCity-1-j+(BitPrec-b-1)*12)));
+          //BWC_Paras.push_back(pow(2,b)*1/(RoffTr+RonArr+Rw*(i+nCity-1-j+(BitPrec-b-1)*12)));
+          BWC.push_back(RonArr);
         }
         else {
-          //BWC.push_back(pow(2,b)*1/(RoffArr+Rw*(i+nCity-1-j)));
-          BWC.push_back(pow(2,b)*1/(RonTr+RoffArr+Rw*(i+nCity-1-j)));
-          BWC_Paras.push_back(pow(2,b)*1/(RoffTr+RoffArr+Rw*(i+nCity-1-j)));
+          //BWC.push_back(pow(2,b)*1/(RonTr+RoffArr+Rw*(i+nCity-1-j)));
+          //BWC_Paras.push_back(pow(2,b)*1/(RoffTr+RoffArr+Rw*(i+nCity-1-j)));
+          
+          //BWC.push_back(pow(2,b)*1/(RonTr+RoffArr+Rw*(i+nCity-1-j+(BitPrec-b-1)*12)));
+          //BWC_Paras.push_back(pow(2,b)*1/(RoffTr+RoffArr+Rw*(i+nCity-1-j+(BitPrec-b-1)*12)));
+
+          BWC.push_back(RoffArr);
         }
       }
     }

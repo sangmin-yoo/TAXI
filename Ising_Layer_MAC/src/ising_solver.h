@@ -12,7 +12,8 @@
 // s_i: {-1, 1}
 class IsingSolver {
   int steps, total_step, seq_clust, BitPrec, nMAC, nRAND, Patience;
-  double cool_coe, update_ratio, Imid, dRtr, VDD, RonTr, RoffTr, RonArr, RoffArr, Icool, Factor, Threshold, init_Irand, Istop;
+  //double cool_coe, update_ratio, Imid, dRtr, VDD, RonTr, RoffTr, RonArr, RoffArr, Rw, Icool, Factor, Threshold, init_Irand, Istop;
+  double cool_coe, Imid, dRtr, VDD, RonTr, RoffTr, RonArr, RoffArr, Rw, Icool, Factor, Threshold, init_Irand, Istop;
   std::mt19937 rnd;
   RandomSelector random_selector;
   double active_ratio; // temp: [0, 1]
@@ -30,8 +31,8 @@ class IsingSolver {
   // MAC Operation for Energy-minimization
   std::vector<int> MAC_wo_Randomness_parallel(std::vector<int> Rids, std::vector<int> AvailableSpins, const bool forward_path);
   int MAC_wo_Randomness(const int Rid, std::vector<int> AvailableSpins, const bool forward_path);
-  //int MAC_wo_Randomness(const int Rid, std::vector<int> AvailableSpins);
   int MAC(const int Rid, std::vector<int> AvailableSpins, const bool forward_path);
+  int MAC_Merged(const int Rid, std::vector<int> AvailableSpins, const bool forward_path);
   void SwapSpinsViolated(const int Seq_curr, const int Cid);
   double calcHbyMAC();
   // active_ratio randomly according to current_spin invert
@@ -62,12 +63,13 @@ public:
   const std::vector<int>& getOptimalSpin() const;
   void setCurrentSpin(const std::vector<int>& new_spin);
   void step();
-  void init(const InitMode mode, const double cool_coe, const double update_ratio, const double initial_active_ratio, const int seq_clust, const double VDD,
-    const double RonTr, const double RoffTr, const double RonArr, const double RoffArr, const int BitPrec, const double Factor, const double Threshold, const int Patience, double init_Irand);
-  void init(const InitMode mode, const int seed, const double cool_coe, const double update_ratio, const double initial_active_ratio, const int seq_clust, const double VDD,
-    const double RonTr, const double RoffTr, const double RonArr, const double RoffArr, const int BitPrec, const double Factor, const double Threshold, const int Patience, double init_Irand);
+  //void init(const InitMode mode, const double cool_coe, const double update_ratio, const double initial_active_ratio, const int seq_clust, const double VDD,
+  void init(const InitMode mode, const double cool_coe, const double initial_active_ratio, const int seq_clust, const double VDD,
+    const double RonTr, const double RoffTr, const double RonArr, const double RoffArr, const double Rw, const int BitPrec, const double Factor, const double Threshold, const int Patience, double init_Irand);
+  //void init(const InitMode mode, const int seed, const double cool_coe, const double update_ratio, const double initial_active_ratio, const int seq_clust, const double VDD,
+  void init(const InitMode mode, const int seed, const double cool_coe, const double initial_active_ratio, const int seq_clust, const double VDD,
+    const double RonTr, const double RoffTr, const double RonArr, const double RoffArr, const double Rw, const int BitPrec, const double Factor, const double Threshold, const int Patience, double init_Irand);
   size_t getActiveNodeCount() const;
-  size_t getUpdateNodeCount() const;
   size_t size() const;
   int map_size() const;
   int opt_size() const;
