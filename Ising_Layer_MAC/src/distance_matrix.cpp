@@ -13,15 +13,19 @@ using namespace std;
 DMatrix::DMatrix(std::istream& is, const double RonArr, const double RoffArr, const double RonTr, const double RoffTr, const double Rw, const int BitPrec, const int ArrSize)
   : DtoR_ratio(1), input_path(is), RonArr(RonArr), RoffArr(RoffArr), RonTr(RonTr), RoffTr(RoffTr), Rw(Rw), BitPrec(BitPrec), ArrSize(ArrSize){}
 DMatrix::~DMatrix() {}
-//std::vector<double> DMatrix::getDMatrix(std::istream& is, const int Oid, const bool is_realistic) {
-std::pair<std::vector<double>, std::vector<double>> DMatrix::getDMatrix(std::istream& is, const int Oid, const bool is_realistic) {
+std::tuple<std::vector<double>, std::vector<double>,std::vector<double>, std::vector<double>, std::vector<double>> DMatrix::getDMatrix(std::istream& is, const int Oid, const bool is_realistic) {
+
   is.clear();
-  is.seekg(1);
+  //is.seekg(2);
+  
   int nCity = sqrt(ArrSize);
+  if (nCity > 9) is.seekg(2);
+  else is.seekg(1);
   // Reading from an input file
   vector<double> CITY(2,0);
   vector<vector<double>> XY(nCity, CITY);
   double x, y;
+  
   rep (i, Oid, nCity) {
     //cout << i << '\n';
     is >> x >> y;
@@ -86,18 +90,18 @@ std::pair<std::vector<double>, std::vector<double>> DMatrix::getDMatrix(std::ist
           //BWC.push_back(pow(2,b)*1/(RonTr+RonArr+Rw*(i+nCity-1-j)));
           //BWC_Paras.push_back(pow(2,b)*1/(RoffTr+RonArr+Rw*(i+nCity-1-j)));
           
-          //BWC.push_back(pow(2,b)*1/(RonTr+RonArr+Rw*(i+nCity-1-j+(BitPrec-b-1)*12)));
-          //BWC_Paras.push_back(pow(2,b)*1/(RoffTr+RonArr+Rw*(i+nCity-1-j+(BitPrec-b-1)*12)));
-          BWC.push_back(RonArr);
+          BWC.push_back(pow(2,b)*1/(RonTr+RonArr+Rw*(i+nCity-1-j+(BitPrec-b-1)*12)));
+          BWC_Paras.push_back(pow(2,b)*1/(RoffTr+RonArr+Rw*(i+nCity-1-j+(BitPrec-b-1)*12)));
+          //BWC.push_back(RonArr);
         }
         else {
           //BWC.push_back(pow(2,b)*1/(RonTr+RoffArr+Rw*(i+nCity-1-j)));
           //BWC_Paras.push_back(pow(2,b)*1/(RoffTr+RoffArr+Rw*(i+nCity-1-j)));
           
-          //BWC.push_back(pow(2,b)*1/(RonTr+RoffArr+Rw*(i+nCity-1-j+(BitPrec-b-1)*12)));
-          //BWC_Paras.push_back(pow(2,b)*1/(RoffTr+RoffArr+Rw*(i+nCity-1-j+(BitPrec-b-1)*12)));
+          BWC.push_back(pow(2,b)*1/(RonTr+RoffArr+Rw*(i+nCity-1-j+(BitPrec-b-1)*12)));
+          BWC_Paras.push_back(pow(2,b)*1/(RoffTr+RoffArr+Rw*(i+nCity-1-j+(BitPrec-b-1)*12)));
 
-          BWC.push_back(RoffArr);
+          //BWC.push_back(RoffArr);
         }
       }
     }
@@ -114,5 +118,43 @@ std::pair<std::vector<double>, std::vector<double>> DMatrix::getDMatrix(std::ist
       }
     }
   }
-  return make_pair(BWC, BWC_Paras);
+  ////////////////////////////////////////////////
+  rep(i,nCity) rep(j, nCity) {
+    if (i == j) {
+      Gm[i][j] = FullPrec;
+      continue;
+    }
+    else {
+      //Gm[i][j] = floor(((Rm[i][j]-DistMin)/(DistMax-DistMin))*FullPrec);
+      Gm[i][j] = floor((Rm[i][j]/DistMax)*FullPrec);
+    }
+  }
+  rep(b,BitPrec) {
+    rep(i,nCity) rep(j,nCity) {
+      BW[b*ArrSize + i*nCity + j] = Gm[i][j] % 2;
+      Gm[i][j] = Gm[i][j]/2;
+    }
+  }
+  std::vector<double> BWG;
+  std::vector<double> BWG_Paras;
+  rep(b,BitPrec) {
+    rep(i,nCity) rep(j,nCity) {
+      if (BW[b*ArrSize + i*nCity + j]==1) {
+        BWG.push_back(pow(2,b)*1/(RonTr+RonArr+Rw*(i+nCity-1-j+(BitPrec-b-1)*12)));
+        BWG_Paras.push_back(pow(2,b)*1/(RoffTr+RonArr+Rw*(i+nCity-1-j+(BitPrec-b-1)*12)));
+      }
+      else {
+        BWG.push_back(pow(2,b)*1/(RonTr+RoffArr+Rw*(i+nCity-1-j+(BitPrec-b-1)*12)));
+        BWG_Paras.push_back(pow(2,b)*1/(RoffTr+RoffArr+Rw*(i+nCity-1-j+(BitPrec-b-1)*12)));
+      }
+    }
+  }
+  std::vector<double> DM (ArrSize*BitPrec);
+  rep(i,nCity) rep(j,nCity) {
+    DM[i*nCity + j] = Rm[i][j];
+  }
+  //return make_tuple(BWC, BWC_Paras, BWG, BWG_Paras, DM);
+  return make_tuple(BWC, BWC_Paras, DM, BWG_Paras, DM);
+  ////////////////////////////////////////////////
+  //return make_tuple(BWC, BWC_Paras);
 }

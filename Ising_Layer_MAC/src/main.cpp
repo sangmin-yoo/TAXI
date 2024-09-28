@@ -59,9 +59,6 @@ void run(const cmdline::parser& parser) {
   //Stop Ising Solver when stochastic probability reaches 2%
   //const double Iterminate = -log(100/2-1)+init_Irand
 
-  // For keeping track of the number of cycles
-  //int nMAC = 0;
-  //int nRand = 0;
   const bool is_realistic = true;
   vector<IsingSolver> solvers;//Vector of IsingSolver: Multiple IsingSolvers are in "solvers"
   int main_solver_idx = -1;
@@ -78,26 +75,29 @@ void run(const cmdline::parser& parser) {
       break;
     case -1: // The last cluster
       size_opt = pow(sqrt(cf.size())-1,2);
-      Oid = 1;
+      //Oid = 1;
+      Oid = 0;
       break;
     default: // The rest of clusters
       size_opt = pow(sqrt(cf.size())-2,2);
-      Oid = 1;
+      //Oid = 1;
+      Oid = 0;
       break;
   }
   DMatrix distance_matrix = DMatrix(ifs, RonArr, RoffArr, RonTr, RoffTr, Rw, BitPrec, cf.size());
-  //const std::vector<double> Wd = distance_matrix.getDMatrix(ifs, Oid, is_realistic);
   auto ret = distance_matrix.getDMatrix(ifs, Oid, is_realistic);
-  const std::vector<double> Wd = ret.first;
-  const std::vector<double> Wd_Paras = ret.second;
-  //const std::vector<double> Wd = distance_matrix.getDMatrix(ifs, Oid, false);
+  const std::vector<double> Wd = get<0>(ret);
+  const std::vector<double> Wd_Paras = get<1>(ret);
+  const std::vector<double> WdG = get<2>(ret);
+  const std::vector<double> WdG_Paras = get<3>(ret);
+  const std::vector<double> DM = get<4>(ret);
+
   //from -swidth to swidth+1, add a IsingSolver to solvers by changing cool
   rep(i, -swidth, swidth+1) {
     const double cool = base_cool * pow(base_cool, 0.1 * i);//pow(a,b)=a^b
     if (0 <= cool && cool < 1) {
       if (i == 0) main_solver_idx = solvers.size();
-      IsingSolver solver(cf, size_opt, Wd, Wd_Paras);
-      //solver.init(IsingSolver::InitMode::Random, cool, parser.get<double>("update-ratio"), initial_active_ratio,
+      IsingSolver solver(cf, size_opt, Wd, Wd_Paras, WdG, WdG_Paras);
       solver.init(IsingSolver::InitMode::Random, cool, initial_active_ratio,
       seq_clust, VDD, RonTr, RoffTr, RonArr, RoffArr, Rw, BitPrec, Factor, Threshold, Patience, init_Irand);
       solvers.push_back(move(solver));
@@ -109,41 +109,29 @@ void run(const cmdline::parser& parser) {
   assert(main_solver_idx >= 0);//program will be terminated if main_solver_idx < 0
   const IsingSolver& main_solver = solvers[main_solver_idx];
   // solve
-  bool is_detail = parser.exist("detail");
+  //bool is_detail = parser.exist("detail");
   bool is_first = true;
 
   while (main_solver.getStep() < main_solver.getTotalStep()) {
-  //while (main_solver.getStep() < 2*(main_solver.getTotalStep())) {
     if (!is_first) {
       for (auto&& solver : solvers) {
         solver.step();
       }
       // solver Share state between
       for (auto&& base_solver : solvers) for (auto&& ref_solver : solvers) {
-        if (base_solver.calcEnergy(ref_solver.getCurrentSpin()) < base_solver.getCurrentEnergy()) {
+        if (ref_solver.getCurrentEnergy() < base_solver.getCurrentEnergy()) {
           base_solver.setCurrentSpin(ref_solver.getCurrentSpin());
-        //cout << "base solver: " << base_solver.getCurrentEnergy() << '\n';
-        //cout << "ref solver: " << ref_solver.getCurrentEnergy() << '\n';
-        //cout << "############################\n";
-        //if (ref_solver.getCurrentEnergy() < base_solver.getCurrentEnergy()) {
-        //  base_solver.setCurrentSpin(ref_solver.getCurrentSpin());
         }
       }
     }
     else is_first = false;
-    //cout << "[Step " << main_solver.getStep() << " / " << main_solver.getTotalStep()+ExtraStepCount << "]" << endl;
-    //cout << "energy: " << main_solver.getCurrentEnergy() << endl;
-    if (is_detail) cout << "spin: " << main_solver.getCurrentSpin() << endl;
-    //cout << "flip: " << main_solver.getActiveNodeCount() << " / " << main_solver.size() << endl;
-    Answer ans = mid.getAnswerFromSpin(main_solver.getCurrentSpin());
-    //ans.output(cout, is_detail);
-    //cout << "is_answer: " << boolalpha << ans.verify() << endl;
-    //cout << endl;
-    //cout << main_solver.getCurrentEnergy() << '\n';
     if (main_solver.getImid() < Istop) break;
   }
   int n_MAC = 0;
   int n_RandFlip = 0;
+  double min_dist = INFINITY;
+  int best_id = 0;
+  int for_id = 0;
   for (auto&& solver : solvers) {
     if (n_MAC < solver.getNumberMAC()) {
       n_MAC = solver.getNumberMAC();
@@ -151,15 +139,42 @@ void run(const cmdline::parser& parser) {
     if (n_RandFlip < solver.getNumberRandFlip()) {
       n_RandFlip = solver.getNumberRandFlip();
     }
+    if (min_dist > solver.getOptimalEnergy()) {
+      min_dist = solver.getOptimalEnergy();
+      best_id = for_id;
+    }
+    ++for_id;
   }
-  //cout << "[Answer]" << endl;
-  //cout << "energy: " << main_solver.getOptimalEnergy() << endl;
-  if (is_detail) cout << "spin: " << main_solver.getOptimalSpin() << endl;
-  Answer ans = mid.getAnswerFromSpin(main_solver.getOptimalSpin());
-  ans.output(cout, true);
+  vector<int> SolSpin = solvers[best_id].getOptimalSpin();
+  //vector<int> SolSpin = main_solver.getOptimalSpin();
+  int LEN = sqrt(SolSpin.size());
+  int prev_j = 0;
+  
+  min_dist = 0;
+  //cout << "LEN: " << LEN << "\n";
+  rep (i, LEN) {
+    rep (j, LEN) {
+      if (SolSpin[i*LEN+j]==1) {
+        //cout << "city: " << j << "\n";
+        ifstream infile(input_file_path);
+        infile.clear();
+        std::string line;
+        rep (X, j+2) {
+          std::getline(infile, line);
+        }
+        cout << line << "\n";
+        infile.close();
+        if (i>0) {
+          min_dist += DM[prev_j*LEN+j];
+        }
+        prev_j = j;
+      }
+    }
+  }
+  cout << '\n';
+  cout << "dist " << min_dist <<'\n';
   cout << "n_MAC " << n_MAC <<'\n';
   cout << "n_RandFlip " << n_RandFlip <<'\n';
-  //cout << "is_answer: " << boolalpha << ans.verify() << endl; 
 }
 cmdline::parser get_command_line_parser() {
   cmdline::parser parser;
@@ -168,7 +183,7 @@ cmdline::parser get_command_line_parser() {
   parser.add<double>("update-ratio", 'u', "the ratio of nodes to update in 1 step", false, 0.3);
   parser.add<int>("grid", 'g', "width and height of the grid", false, 8);
   parser.add<int>("swidth", 's', "the max number of sub solvers / 2", false, 2);
-  parser.add("detail", 'd', "print log in detail");
+  //parser.add("detail", 'd', "print log in detail");
   parser.add<double>("VDD", 'v', "Supply voltage", false, 1.0);
   parser.add<double>("Ron-tr", 'T', "On resistance of transistors", false, 1e4);
   parser.add<double>("Roff-tr", 't', "Off resistance of transistors", false, 1e9);

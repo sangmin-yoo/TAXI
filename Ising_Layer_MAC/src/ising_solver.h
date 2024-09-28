@@ -20,7 +20,9 @@ class IsingSolver {
   const CostFunction cf;
   const std::vector<double> Wd;
   const std::vector<double> Wd_Paras;
-  double Hmax, H_B;
+  const std::vector<double> WdG;
+  const std::vector<double> WdG_Paras;
+  double H_Optim, H_curr;
   int PlateauCNT;
   std::vector<int> OptSpins, current_spin, optimal_spin;
   Weight calcEnergyDiff(const std::vector<int>& spin, const int node_id) const;
@@ -31,8 +33,8 @@ class IsingSolver {
   // MAC Operation for Energy-minimization
   std::vector<int> MAC_wo_Randomness_parallel(std::vector<int> Rids, std::vector<int> AvailableSpins, const bool forward_path);
   int MAC_wo_Randomness(const int Rid, std::vector<int> AvailableSpins, const bool forward_path);
-  int MAC(const int Rid, std::vector<int> AvailableSpins, const bool forward_path);
-  int MAC_Merged(const int Rid, std::vector<int> AvailableSpins, const bool forward_path);
+  int MAC(const int Rid, std::vector<int> AvailableSpins);
+  int MAC_Merged(const int Rid, std::vector<int> AvailableSpins);
   void SwapSpinsViolated(const int Seq_curr, const int Cid);
   double calcHbyMAC();
   // active_ratio randomly according to current_spin invert
@@ -51,7 +53,7 @@ public:
     Negative, Positive, Random
   };
   //IsingSolver(const CostFunction& cf, const int opt_size, const std::vector<double> Wd);
-  IsingSolver(const CostFunction& cf, const int opt_size, const std::vector<double> Wd, const std::vector<double> Wd_Paras);
+  IsingSolver(const CostFunction& cf, const int opt_size, const std::vector<double> Wd, const std::vector<double> Wd_Paras, const std::vector<double> WdG, const std::vector<double> WdG_Paras);
   Weight getCurrentEnergy() const;
   int getNumberMAC() const;
   int getNumberRandFlip() const;
