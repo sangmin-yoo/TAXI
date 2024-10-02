@@ -190,7 +190,7 @@ cmdline::parser get_command_line_parser() {
   parser.add<double>("Rw", 'w', "Parasitic resistance (Wire)", false, 1e3);
   parser.add<double>("Ron-Arr", 'A', "On resistance of Memory in the Array", false, 1.2e5);
   parser.add<double>("Roff-Arr", 'a', "Off resistance of Memory in the Array", false, 1.8e5);
-  parser.add<int>("BitPrec", 'b', "Bit Precision of Memory in the Array", false, 4);
+  parser.add<int>("BitPrec", 'b', "Bit Precision of Memory in the Array", false, 1);
   //parser.add<double>("IsotL", 'i', "Lowerbound of variable range in current", false, 4.6e-4);
   //parser.add<double>("IsotH", 'I', "Upperbound of variable range in current", false, 5.6e-4);
   //parser.add<double>("tMAC", 'm', "time to operate one MAC operation", false, 1e-9);

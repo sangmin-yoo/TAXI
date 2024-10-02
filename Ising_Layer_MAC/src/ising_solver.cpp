@@ -221,8 +221,8 @@ void IsingSolver::HminMAC() {
       current_spin[Order*map_size()+AvailableSpins[0]] = 1;
       break;
     }
-    erase_spin = MAC(Order, AvailableSpins);
-    //erase_spin = MAC_Merged(Order, AvailableSpins);
+    //erase_spin = MAC(Order, AvailableSpins);
+    erase_spin = MAC_Merged(Order, AvailableSpins);
     AvailableSpins.erase(AvailableSpins.begin()+erase_spin);
   }
 }
@@ -462,6 +462,7 @@ int IsingSolver::MAC_Merged(const int Rid, std::vector<int> AvailableSpins) {
   rep(i, map_size()) Seqs.push_back(0);
   if (Rid > 0) Seqs[Rid-1] = 1;
   if (Rid < map_size()-1) Seqs[Rid+1] = 1;
+
   for (int col: AvailableSpins) {
     for (int Seq : Seqs) {
       rep(B, BitPrec) {
