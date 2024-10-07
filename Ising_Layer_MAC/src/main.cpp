@@ -91,13 +91,19 @@ void run(const cmdline::parser& parser) {
   const std::vector<double> WdG = get<2>(ret);
   const std::vector<double> WdG_Paras = get<3>(ret);
   const std::vector<double> DM = get<4>(ret);
+  
+  std::vector<double> KeepH;
+  rep (i, 11) {
+    KeepH.push_back(INFINITY);
+  }
 
   //from -swidth to swidth+1, add a IsingSolver to solvers by changing cool
   rep(i, -swidth, swidth+1) {
     const double cool = base_cool * pow(base_cool, 0.1 * i);//pow(a,b)=a^b
     if (0 <= cool && cool < 1) {
       if (i == 0) main_solver_idx = solvers.size();
-      IsingSolver solver(cf, size_opt, Wd, Wd_Paras, WdG, WdG_Paras);
+      //IsingSolver solver(cf, size_opt, Wd, Wd_Paras, WdG, WdG_Paras);
+      IsingSolver solver(cf, size_opt, Wd, Wd_Paras, WdG, WdG_Paras, KeepH);
       solver.init(IsingSolver::InitMode::Random, cool, initial_active_ratio,
       seq_clust, VDD, RonTr, RoffTr, RonArr, RoffArr, Rw, BitPrec, Factor, Threshold, Patience, init_Irand);
       solvers.push_back(move(solver));
@@ -190,7 +196,7 @@ cmdline::parser get_command_line_parser() {
   parser.add<double>("Rw", 'w', "Parasitic resistance (Wire)", false, 1e3);
   parser.add<double>("Ron-Arr", 'A', "On resistance of Memory in the Array", false, 1.2e5);
   parser.add<double>("Roff-Arr", 'a', "Off resistance of Memory in the Array", false, 1.8e5);
-  parser.add<int>("BitPrec", 'b', "Bit Precision of Memory in the Array", false, 1);
+  parser.add<int>("BitPrec", 'b', "Bit Precision of Memory in the Array", false, 2);
   //parser.add<double>("IsotL", 'i', "Lowerbound of variable range in current", false, 4.6e-4);
   //parser.add<double>("IsotH", 'I', "Upperbound of variable range in current", false, 5.6e-4);
   //parser.add<double>("tMAC", 'm', "time to operate one MAC operation", false, 1e-9);

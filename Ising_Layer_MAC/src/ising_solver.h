@@ -23,7 +23,8 @@ class IsingSolver {
   const std::vector<double> WdG;
   const std::vector<double> WdG_Paras;
   double H_Optim, H_curr;
-  int PlateauCNT;
+  std::vector<double> KeepH;
+  int PlateauCNT, OptimCNT;
   std::vector<int> OptSpins, current_spin, optimal_spin;
   Weight calcEnergyDiff(const std::vector<int>& spin, const int node_id) const;
   // H minimization using MAC operations
@@ -53,7 +54,7 @@ public:
     Negative, Positive, Random
   };
   //IsingSolver(const CostFunction& cf, const int opt_size, const std::vector<double> Wd);
-  IsingSolver(const CostFunction& cf, const int opt_size, const std::vector<double> Wd, const std::vector<double> Wd_Paras, const std::vector<double> WdG, const std::vector<double> WdG_Paras);
+  IsingSolver(const CostFunction& cf, const int opt_size, const std::vector<double> Wd, const std::vector<double> Wd_Paras, const std::vector<double> WdG, const std::vector<double> WdG_Paras, std::vector<double> KeepH);
   Weight getCurrentEnergy() const;
   int getNumberMAC() const;
   int getNumberRandFlip() const;

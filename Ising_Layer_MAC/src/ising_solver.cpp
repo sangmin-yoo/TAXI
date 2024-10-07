@@ -15,10 +15,10 @@ using namespace std;
 Edge::Edge(int to, Weight weight) : to(to), weight(weight) {}
 
 //cf is costfunction
-IsingSolver::IsingSolver(const CostFunction& cf, const int size_opt, const std::vector<double> Wd, const std::vector<double> Wd_Paras, const std::vector<double> WdG, const std::vector<double> WdG_Paras)
+IsingSolver::IsingSolver(const CostFunction& cf, const int size_opt, const std::vector<double> Wd, const std::vector<double> Wd_Paras, const std::vector<double> WdG, const std::vector<double> WdG_Paras, std::vector<double> KeepH)
   : steps(0), total_step(0),
     random_selector(size_opt), active_ratio(0), cf(cf),
-    Wd(Wd), Wd_Paras(Wd_Paras), WdG(WdG), WdG_Paras(WdG_Paras), H_Optim(INFINITY), H_curr(0) {}
+    Wd(Wd), Wd_Paras(Wd_Paras), WdG(WdG), WdG_Paras(WdG_Paras), H_Optim(INFINITY), H_curr(0), KeepH(KeepH) {}
     
 int IsingSolver::calcTotalStep(double initial_active_ratio, double init_Irand) const {
   // return n s.t. initial_active_ratio * size() * cool_coe^n < 1
@@ -56,6 +56,7 @@ void IsingSolver::init(const IsingSolver::InitMode mode, const int seed, const d
   nMAC = 0;
   nRAND = 0;
   PlateauCNT = 0;
+  OptimCNT = 0;
   Imid = init_Irand;
   Icool = cool_coe;
   Istop = -log(100/1-1)+50;
@@ -463,12 +464,17 @@ int IsingSolver::MAC_Merged(const int Rid, std::vector<int> AvailableSpins) {
   if (Rid > 0) Seqs[Rid-1] = 1;
   if (Rid < map_size()-1) Seqs[Rid+1] = 1;
 
+  int Bsize;
   for (int col: AvailableSpins) {
     for (int Seq : Seqs) {
       rep(B, BitPrec) {
+        Bsize = B*size();
         rep(s, map_size()) {
-          //Ib += VDD/((RonTr-RoffTr)*Seqs[Seq]-RoffTr+0.5*(RonArr-RoffArr)*current_spin[Seq+s]+0.5*(RonArr+RoffArr)+Wd[B*size()+s*map_size()+col]+Rw*((map_size()-1-s)*2+60-12-col-12*B));
-          Ib += VDD/((RonTr-RoffTr)*Seqs[Seq]+RoffTr+0.5*(RonArr-RoffArr)*current_spin[Seq+s]+0.5*(RonArr+RoffArr)+Wd[B*size()+s*map_size()+col]+Rw*((map_size()-s)*2+46-col-12*B));
+          //Ib += VDD/((RonTr-RoffTr)*Seqs[Seq]+RoffTr+0.5*(RonArr-RoffArr)*current_spin[Seq+s]+0.5*(RonArr+RoffArr)+Wd[B*size()+s*map_size()+col]+Rw*((map_size()-1-s)*2+60-12-col-12*B));
+          //Ib += VDD/((RonTr-RoffTr)*Seqs[Seq]+RoffTr+0.5*(RonArr-RoffArr)*current_spin[Seq+s]+0.5*(RonArr+RoffArr)+Wd[B*size()+s*map_size()+col]+Rw*((map_size()-1-s)*2+12*(BitPrec+1)-12-col-12*B));
+          //Ib += VDD/((RonTr-RoffTr)*Seqs[Seq]+RoffTr+0.5*(RonArr-RoffArr)*current_spin[Seq+s]+0.5*(RonArr+RoffArr)+Wd[Bsize+s*map_size()+col]+Rw*((map_size()-s)*2-2+12*(BitPrec-B)-col));
+          //Ib += VDD/((RonTr-RoffTr)*Seqs[Seq]+RoffTr+0.5*(RonArr-RoffArr)*current_spin[Seq+s]+0.5*(RonArr+RoffArr)+Wd[B*size()+s*map_size()+col]+Rw*((map_size()-s)*2+22-col-12*B));
+          Ib += VDD/((RonTr-RoffTr)*Seqs[Seq]+RoffTr+0.5*(RonArr-RoffArr)*current_spin[Seq+s]+0.5*(RonArr+RoffArr)+Wd[Bsize+s*map_size()+col]+Rw*((map_size()-s)*2+46-col-12*B));
         }
         Iout += pow(2,B)*Ib;
         Ib = 0;
@@ -613,18 +619,27 @@ std::vector<int> IsingSolver::SyncNodes(std::vector<int> node_ids) {
 void IsingSolver::cool() {
   //active_ratio *= cool_coe;
   Imid -= Icool;
-  //Imid -= (50-Imid)*Icool;
-  //Imid *= Icool;
 }
 void IsingSolver::cooling_rate_scheduler(){
   //if (steps%Patience == Patience-1) Icool *= Factor;
-  double Hnew = getCurrentEnergy();
-  if (H_curr - Hnew < Threshold) ++PlateauCNT;
-  if (PlateauCNT >= Patience) {
+  KeepH.erase(KeepH.begin());
+  KeepH.push_back(H_curr);
+  //double Hnew = H_curr;
+  double Hnew = 0;
+  double Hprev = 0;
+  rep (i, 10) {
+    Hnew += KeepH[i+1];
+    Hprev += KeepH[i];
+  }
+  //cout << Hprev-Hnew << '\n';
+  if (Hprev - Hnew < Threshold) ++PlateauCNT;
+  //if (PlateauCNT >= Patience) {
+  if (PlateauCNT >= Patience*0.001*total_step) {
+    //Icool *= Factor*(Hprev - Hnew);
     Icool *= Factor;
     PlateauCNT = 0;
   }
-  H_curr = Hnew;
+  //H_curr = Hnew;
 }
 void IsingSolver::updateOptimalSpin() {
   /*if (getCurrentEnergy() < getOptimalEnergy()) {
@@ -634,7 +649,11 @@ void IsingSolver::updateOptimalSpin() {
   if (H_curr < H_Optim) {
     H_Optim = H_curr;
     optimal_spin = current_spin;
+    OptimCNT = 0;
   }
+  else ++OptimCNT; 
+
+  //if (OptimCNT > Patience*0.01*total_step) Imid = 0;
 }
 void IsingSolver::step() {
   cool();
