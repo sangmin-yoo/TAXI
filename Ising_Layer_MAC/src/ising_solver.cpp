@@ -619,6 +619,7 @@ std::vector<int> IsingSolver::SyncNodes(std::vector<int> node_ids) {
 void IsingSolver::cool() {
   //active_ratio *= cool_coe;
   Imid -= Icool;
+  //Imid -= Icool*Patience;
 }
 void IsingSolver::cooling_rate_scheduler(){
   //if (steps%Patience == Patience-1) Icool *= Factor;
@@ -726,6 +727,9 @@ int IsingSolver::getNumberRandFlip() const {
 }
 double IsingSolver::getImid() const {
   return Imid;
+}
+void IsingSolver::setImid(const double ImidNew) {
+  Imid = ImidNew;
 }
 const vector<int>& IsingSolver::SpinsToOptimize() const{
   return OptSpins;

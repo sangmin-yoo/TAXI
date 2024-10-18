@@ -117,8 +117,9 @@ void run(const cmdline::parser& parser) {
   // solve
   //bool is_detail = parser.exist("detail");
   bool is_first = true;
+  //int ZeroTimes = 1;
 
-  while (main_solver.getStep() < main_solver.getTotalStep()) {
+  while (main_solver.getStep() < Patience*main_solver.getTotalStep()) {
     if (!is_first) {
       for (auto&& solver : solvers) {
         solver.step();
@@ -132,6 +133,17 @@ void run(const cmdline::parser& parser) {
     }
     else is_first = false;
     if (main_solver.getImid() < Istop) break;
+    /*if (main_solver.getImid() < Istop) {
+      if (ZeroTimes < Patience) {
+        for (auto&& solver : solvers) {
+          solver.setImid(init_Irand);
+        }
+        ++ZeroTimes;
+        //cout << ZeroTimes << '\n';
+        //cout << main_solver.getImid() << '\n';
+      }
+      else break;
+    }*/
   }
   int n_MAC = 0;
   int n_RandFlip = 0;

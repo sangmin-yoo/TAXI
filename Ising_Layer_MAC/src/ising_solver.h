@@ -59,6 +59,7 @@ public:
   int getNumberMAC() const;
   int getNumberRandFlip() const;
   double getImid() const;
+  void setImid(const double ImidNew);
   Weight getOptimalEnergy() const; // However, it is calculated by the current objective function
   Weight calcEnergy(const std::vector<int>& spin) const;
   const std::vector<int>& SpinsToOptimize() const;
