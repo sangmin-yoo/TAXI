@@ -118,7 +118,7 @@ cluster_dict = {
     "rl5934": [1237,196,29,4],
     "rl11849": [2341,375,61,7],
     "pla33810": [6446,1257,192,28,3],
-    "pla85900": []
+    "pla85900": [16355, 3024, 486, 68, 9]
     }
 
 
@@ -148,19 +148,6 @@ print("Problem : " + x)
 X_coord = np.array(tsp_database[x][0])
 Y_coord = np.array(tsp_database[x][1])
 X_Y = np.array(list(zip(X_coord,Y_coord))).reshape(len(X_coord),2)
-plt.plot()
-plt.title('Cities in ' + x)
-plt.scatter(X_coord, Y_coord)
-plt.show()
-
-
-# lt.plot()<br>
-# lt.title('Cities in ' + x)<br>
-# lt.scatter(X_coord, Y_coord)<br>
-# lt.show()
-
-# In[9]:
-
 
 from numpy import inf
 
@@ -173,14 +160,6 @@ X_Y[X_Y == inf] = 0
 def get_clustered_cities(num_clust, labels_array):
     return np.where(labels_array == num_clust)
 
-
-# In[11]:
-
-
-def plot_sys2_cities(sys2_cities):
-    for k in K:
-        plt.scatter(sys2_cities[k][:,0], sys2_cities[k][:,1])
-        plt.show()
 
 
 # In[12]:
@@ -204,11 +183,11 @@ hierarchies = []
 
 CEs = []
 clf = NearestCentroid()
-SEARCH = True
+SEARCH = False
 if SEARCH:
-    #n_clusters = floor(len(X_Y[i])/cluster_size_max)
+    n_clusters = floor(len(X_Y[i])/cluster_size_max)
     print("Search Started!")
-    n_clusters = 16500
+    #n_clusters = 16355
     while True:
         if Contrained:
             KMC = KMeansConstrained(
@@ -263,23 +242,27 @@ if SEARCH:
         print(n_clusters, n_min, n_max)
         
         if (n_max < cluster_size_max+1):# and (n_clusters == 2 or MEAN*0.999 < CE):# and (MinScore*1.01 > Score):
-            plt.plot(range(len(CEs)), CEs, 'r-')
-            plt.show()
-            colors = mpl.cm.tab20(range(20))
-            c_labels = []
-            for yy in y_KMC:
-                c_labels.append(colors[yy%20])
-            #plt.scatter(X_Y[i][:,0], X_Y[i][:,1], c=y_KMC, s=10, cmap='viridis')
-            plt.scatter(X_Y[i][:,0], X_Y[i][:,1], c=c_labels, s=10)
-            plt.scatter(centers[:,0], centers[:,1], c='black', s=50, alpha=0.5)
-            plt.rcParams.update({'font.size':15})
-            plt.show()
+            #plt.plot(range(len(CEs)), CEs, 'r-')
+            #plt.show()
+            #colors = mpl.cm.tab20(range(20))
+            #c_labels = []
+            #for yy in y_KMC:
+            #    c_labels.append(colors[yy%20])
+            #plt.scatter(X_Y[i][:,0], X_Y[i][:,1], c=c_labels, s=10)
+            #plt.scatter(centers[:,0], centers[:,1], c='black', s=50, alpha=0.5)
+            #plt.rcParams.update({'font.size':15})
+            #plt.show()
             
             KM_labels.append(y_KMC)
             X_Y.append(centers)
             hierarchies.append(len(centers))
             i += 1
             n_clusters = floor(len(X_Y[i])/cluster_size_max)
+            """if i == 1:
+                n_clusters = 2500
+            else:
+                n_clusters = floor(len(X_Y[i])/cluster_size_max)
+            """
             if n_clusters < 2:
                 n_clusters = 2
             if len(centers) < cluster_size_max+1:
@@ -599,10 +582,9 @@ init_cools = [0.001]
 Factors = [1.1]
 Thresholds = [0]
 Patiences = [30]
-#Patiences = [100]
 
 init_Irands = [48]
-init_cools = [0.002]
+init_cools = [0.001]
 Factors = [0.9]
 Thresholds = [0]
 Patiences = [30]
@@ -647,7 +629,7 @@ for REPEAT in range(repeat):
                         print("Irand: ", Irand, "Cool: ", cool, "Factor: ", Factor, " Threshold: ", Threshold, " Patience: ", Patience, " ttd: ", ttds[i], " nMAC: ", nMACs[i], " nRandFlip: ", nRandFlips[i])
                         i += 1
                         
-"""hierarchies_new = []
+hierarchies_new = []
 for XX in range(len(Cluster_distribution)):
     hierarchies_new.append(sum(Cluster_distribution[XX].values()))
     kick_out = []
@@ -658,7 +640,7 @@ for XX in range(len(Cluster_distribution)):
         del Cluster_distribution[XX][key]
 print(hierarchies_new)
 print(Cluster_distribution)
-"""
+
 
 # In[93]:
 
