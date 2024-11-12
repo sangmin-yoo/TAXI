@@ -55,7 +55,8 @@ void run(const cmdline::parser& parser) {
   const int Patience = parser.get<int>("Patience");
   const double init_Irand = parser.get<double>("init_Irand");
   //Stop Ising Solver when stochastic probability reaches 1%
-  const double Istop = -log(100/1-1)+50;
+  //const double Istop = -log(100/1-1)+50;
+  const double Istop = -log(100/1-1)*21+450;
   //Stop Ising Solver when stochastic probability reaches 2%
   //const double Iterminate = -log(100/2-1)+init_Irand
 
@@ -119,7 +120,8 @@ void run(const cmdline::parser& parser) {
   bool is_first = true;
   //int ZeroTimes = 1;
 
-  while (main_solver.getStep() < Patience*main_solver.getTotalStep()) {
+  //while (main_solver.getStep() < Patience*main_solver.getTotalStep()) {
+  while (main_solver.getStep() < main_solver.getTotalStep()) {
     if (!is_first) {
       for (auto&& solver : solvers) {
         solver.step();
@@ -132,7 +134,7 @@ void run(const cmdline::parser& parser) {
       }
     }
     else is_first = false;
-    if (main_solver.getImid() < Istop) break;
+    //if (main_solver.getImid() < Istop) break;
     /*if (main_solver.getImid() < Istop) {
       if (ZeroTimes < Patience) {
         for (auto&& solver : solvers) {
@@ -203,16 +205,19 @@ cmdline::parser get_command_line_parser() {
   parser.add<int>("swidth", 's', "the max number of sub solvers / 2", false, 2);
   //parser.add("detail", 'd', "print log in detail");
   parser.add<double>("VDD", 'v', "Supply voltage", false, 1.0);
-  parser.add<double>("Ron-tr", 'T', "On resistance of transistors", false, 1e4);
+  parser.add<double>("Ron-tr", 'T', "On resistance of transistors", false, 1e3);
   parser.add<double>("Roff-tr", 't', "Off resistance of transistors", false, 1e9);
-  parser.add<double>("Rw", 'w', "Parasitic resistance (Wire)", false, 1e3);
-  parser.add<double>("Ron-Arr", 'A', "On resistance of Memory in the Array", false, 1.2e5);
-  parser.add<double>("Roff-Arr", 'a', "Off resistance of Memory in the Array", false, 1.8e5);
-  parser.add<int>("BitPrec", 'b', "Bit Precision of Memory in the Array", false, 2);
+  parser.add<double>("Rw", 'w', "Parasitic resistance (Wire)", false, 1e2);
+  //parser.add<double>("Ron-Arr", 'A', "On resistance of Memory in the Array", false, 1.2e5);
+  //parser.add<double>("Roff-Arr", 'a', "Off resistance of Memory in the Array", false, 1.8e5);
+  parser.add<double>("Ron-Arr", 'A', "On resistance of Memory in the Array", false, 2.5e4);
+  parser.add<double>("Roff-Arr", 'a', "Off resistance of Memory in the Array", false, 5.0e4);
+  parser.add<int>("BitPrec", 'b', "Bit Precision of Memory in the Array", false, 4);
   //parser.add<double>("IsotL", 'i', "Lowerbound of variable range in current", false, 4.6e-4);
   //parser.add<double>("IsotH", 'I', "Upperbound of variable range in current", false, 5.6e-4);
   //parser.add<double>("tMAC", 'm', "time to operate one MAC operation", false, 1e-9);
-  parser.add<double>("init_Irand", 'I', "Initial I for the Stochastic operations [unit: mA]", false, 48);
+  //parser.add<double>("init_Irand", 'I', "Initial I for the Stochastic operations [unit: mA]", false, 48);
+  parser.add<double>("init_Irand", 'I', "Initial I for the Stochastic operations [unit: mA]", false, 418);
   parser.add<double>("Factor", 'F', "Factor for the cooling scheduler", false, 0.99);
   parser.add<double>("Threshold", 'D', "Threshold for the cooling scheduler", false, 1e-4);
   parser.add<int>("Patience", 'P', "Patience for the cooling scheduler", false, 5);

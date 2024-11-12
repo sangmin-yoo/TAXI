@@ -59,8 +59,11 @@ void IsingSolver::init(const IsingSolver::InitMode mode, const int seed, const d
   OptimCNT = 0;
   Imid = init_Irand;
   Icool = cool_coe;
-  Istop = -log(100/1-1)+50;
+  //Istop = -log(100/1-1)+50;
+  //Istop = -log(100/1.5-1)+50;
+  Istop = -log(100/1-1)*21+450;
 
+  this->init_Irand = init_Irand;
   this->total_step = calcTotalStep(initial_active_ratio, init_Irand);
 
   switch (mode) {
@@ -222,8 +225,8 @@ void IsingSolver::HminMAC() {
       current_spin[Order*map_size()+AvailableSpins[0]] = 1;
       break;
     }
-    //erase_spin = MAC(Order, AvailableSpins);
-    erase_spin = MAC_Merged(Order, AvailableSpins);
+    erase_spin = MAC(Order, AvailableSpins);
+    //erase_spin = MAC_Merged(Order, AvailableSpins);
     AvailableSpins.erase(AvailableSpins.begin()+erase_spin);
   }
 }
@@ -408,7 +411,8 @@ int IsingSolver::MAC(const int Rid, std::vector<int> AvailableSpins) {
     }
     Iout += Iparas;
     //Add current from Spin-devices that are stochastically switched. By the Digital circuit.
-    if (rand()%100 < 100/(1+exp(-(Imid-50)))) Iout_rand = Iout;
+    //if (rand()%100 < 100/(1+exp(-(Imid-50)))) Iout_rand = Iout;
+    if (rand()%100 < 100/(1+exp(-(Imid-450)*0.047619))) Iout_rand = Iout;
     else Iout_rand = 0;
     if (MAX_rand<Iout_rand) {
       MAX_rand = Iout_rand;
@@ -620,6 +624,26 @@ void IsingSolver::cool() {
   //active_ratio *= cool_coe;
   Imid -= Icool;
   //Imid -= Icool*Patience;
+  //cout << (init_Irand-45)*cos((steps/total_step)*1.57) << "\n";
+  //cout << steps/total_step << "\n";
+
+  //Imid =  45 + (init_Irand-45)*0.5*cos((steps/total_step)*M_PI);
+
+  //int DD = ceil(total_step/Patience);
+  //Version 11
+  //double IMAX = init_Irand - Factor*floor(steps/DD);
+  //Imid = IMAX - ((IMAX-Istop-Factor*(Patience-1-floor(steps/DD)))/DD)*(steps%DD);
+  
+  
+  //Version 1
+  //Imid =  pow(Factor,floor(steps/DD))*(45.4 + (init_Irand-45.4)*0.5*cos(((steps % DD)/DD)*M_PI));
+  //Version 2
+  //Imid = 45.4 + pow(Factor,floor(steps/DD))*(init_Irand-45.4)*0.5*cos(((steps % DD)/DD)*M_PI);
+  //Version 3
+  //Imid =  pow(Factor,floor(steps/DD))*(45.4 + (init_Irand-45.4)*0.5*(cos(((steps % DD)/DD)*M_PI)+1));
+  //Version 4
+  //Imid = 45.4 + pow(Factor,floor(steps/DD))*(init_Irand-45.4)*0.5*(cos(((steps % DD)/DD)*M_PI)+1);
+
 }
 void IsingSolver::cooling_rate_scheduler(){
   //if (steps%Patience == Patience-1) Icool *= Factor;
