@@ -19,7 +19,7 @@ protected:
 public:
   DMatrix(std::istream& is, const double RonArr, const double RoffArr, const double RonTr, const double RoffTr, const double Rw, const int BitPrec, const int ArrSize);
   virtual ~DMatrix();
-  virtual std::tuple<std::vector<double>, std::vector<double>,std::vector<double>, std::vector<double>, std::vector<double>> getDMatrix(std::istream& is, const int Oid, const bool is_realistic);
+  virtual std::tuple<std::vector<double>, std::vector<double>,std::vector<double>, std::vector<double>, std::vector<double>> getDMatrix(std::istream& is, const bool is_realistic);
 };
 
 #endif
