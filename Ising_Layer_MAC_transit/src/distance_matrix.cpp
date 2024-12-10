@@ -24,11 +24,11 @@ std::tuple<std::vector<double>, std::vector<double>,std::vector<double>, std::ve
   // Reading from an input file
   vector<double> CITY(2,0);
   vector<vector<double>> XY(nCity, CITY);
-  double x, y;
+  double x, y, z;
   
   rep (i, Oid, nCity) {
     //cout << i << '\n';
-    is >> x >> y;
+    is >> x >> y >> z;
       XY[i][0] = x;
       XY[i][1] = y;
     //cout << XY[i][0] << "  " << XY[i][1] << '\n';
@@ -43,12 +43,6 @@ std::tuple<std::vector<double>, std::vector<double>,std::vector<double>, std::ve
     if (i == j) {
       Rm[i][j] = INFINITY;
     }
-    else if (j == i+1) {
-      Rm[i][j] = 0;
-    }
-    else if (j == i-1) {
-      Rm[i][j] = 0;
-    }
     else {
       dX = XY[i][0] - XY[j][0];
       dY = XY[i][1] - XY[j][1];
@@ -61,6 +55,11 @@ std::tuple<std::vector<double>, std::vector<double>,std::vector<double>, std::ve
       }
     }
   }
+  for (int i = 0; i < nCity; i+=2) {
+    Rm[i][i+1] = 0;
+    Rm[i+1][i] = 0;
+  }
+  
   // Normalize, flip (R to G), and quantize the distance
   vector<int> Grow(nCity, 0);
   vector<vector<int>> Gm(nCity, Grow);
