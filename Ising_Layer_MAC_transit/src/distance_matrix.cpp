@@ -24,6 +24,7 @@ std::tuple<std::vector<double>, std::vector<double>,std::vector<double>, std::ve
   // Reading from an input file
   vector<double> CITY(2,0);
   vector<vector<double>> XY(nCity, CITY);
+  vector<double> quad_info(nCity, 0); 
   double x, y, z;
   
   rep (i, Oid, nCity) {
@@ -31,6 +32,7 @@ std::tuple<std::vector<double>, std::vector<double>,std::vector<double>, std::ve
     is >> x >> y >> z;
       XY[i][0] = x;
       XY[i][1] = y;
+      quad_info[i] = z;
     //cout << XY[i][0] << "  " << XY[i][1] << '\n';
   }
   // Calculate distances between cities and Map them in resistance.
@@ -43,6 +45,11 @@ std::tuple<std::vector<double>, std::vector<double>,std::vector<double>, std::ve
     if (i == j) {
       Rm[i][j] = INFINITY;
     }
+    
+    else if (quad_info[i] != quad_info[j]) {
+      Rm[i][j] = 1000;
+    }
+    
     else {
       dX = XY[i][0] - XY[j][0];
       dY = XY[i][1] - XY[j][1];
@@ -56,10 +63,10 @@ std::tuple<std::vector<double>, std::vector<double>,std::vector<double>, std::ve
     }
   }
   for (int i = 0; i < nCity; i+=2) {
-    Rm[i][i+1] = 0;
-    Rm[i+1][i] = 0;
+    Rm[i][i+1] = 1;
+    Rm[i+1][i] = 1;
   }
-  
+
   // Normalize, flip (R to G), and quantize the distance
   vector<int> Grow(nCity, 0);
   vector<vector<int>> Gm(nCity, Grow);

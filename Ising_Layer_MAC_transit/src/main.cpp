@@ -57,6 +57,7 @@ void run(const cmdline::parser& parser) {
   //Stop Ising Solver when stochastic probability reaches 1%
   //const double Istop = -log(100/1-1)+50;
   const double Istop = -log(100/1-1)*21+450;
+  //const double Istop = 10;
   //Stop Ising Solver when stochastic probability reaches 2%
   //const double Iterminate = -log(100/2-1)+init_Irand
 
@@ -182,7 +183,11 @@ void run(const cmdline::parser& parser) {
         rep (X, j+2) {
           std::getline(infile, line);
         }
-        cout << line << "\n";
+        std::istringstream iss(line);
+        double num1, num2; 
+        iss >> num1 >> num2; // Extract only the first two numbers
+        cout<< num1 << " " << num2 << "\n";
+        //cout << line << "\n";
         infile.close();
         if (i>0) {
           min_dist += DM[prev_j*LEN+j];

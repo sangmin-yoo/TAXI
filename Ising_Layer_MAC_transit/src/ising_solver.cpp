@@ -62,6 +62,7 @@ void IsingSolver::init(const IsingSolver::InitMode mode, const int seed, const d
   //Istop = -log(100/1-1)+50;
   //Istop = -log(100/1.5-1)+50;
   Istop = -log(100/1-1)*21+450;
+  //Istop = 10;
 
   this->init_Irand = init_Irand;
   this->total_step = calcTotalStep(initial_active_ratio, init_Irand);
