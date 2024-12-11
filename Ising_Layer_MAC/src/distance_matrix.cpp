@@ -24,11 +24,11 @@ std::tuple<std::vector<double>, std::vector<double>,std::vector<double>, std::ve
   // Reading from an input file
   vector<double> CITY(2,0);
   vector<vector<double>> XY(nCity, CITY);
-  double x, y;
+  double x, y, z;
   
   rep (i, Oid, nCity) {
     //cout << i << '\n';
-    is >> x >> y;
+    is >> x >> y >> z;
       XY[i][0] = x;
       XY[i][1] = y;
     //cout << XY[i][0] << "  " << XY[i][1] << '\n';
