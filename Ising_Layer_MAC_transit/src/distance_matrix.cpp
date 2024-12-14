@@ -13,7 +13,7 @@ using namespace std;
 DMatrix::DMatrix(std::istream& is, const double RonArr, const double RoffArr, const double RonTr, const double RoffTr, const double Rw, const int BitPrec, const int ArrSize)
   : DtoR_ratio(1), input_path(is), RonArr(RonArr), RoffArr(RoffArr), RonTr(RonTr), RoffTr(RoffTr), Rw(Rw), BitPrec(BitPrec), ArrSize(ArrSize){}
 DMatrix::~DMatrix() {}
-std::tuple<std::vector<double>, std::vector<double>,std::vector<double>, std::vector<double>, std::vector<double>> DMatrix::getDMatrix(std::istream& is, const int Oid, const bool is_realistic) {
+std::tuple<std::vector<double>, std::vector<double>,std::vector<double>, std::vector<double>, std::vector<double>> DMatrix::getDMatrix(std::istream& is, const bool is_realistic) {
 
   is.clear();
   //is.seekg(2);
@@ -27,7 +27,7 @@ std::tuple<std::vector<double>, std::vector<double>,std::vector<double>, std::ve
   vector<double> quad_info(nCity, 0); 
   double x, y, z;
   
-  rep (i, Oid, nCity) {
+  rep (i, 0, nCity) {
     //cout << i << '\n';
     is >> x >> y >> z;
       XY[i][0] = x;

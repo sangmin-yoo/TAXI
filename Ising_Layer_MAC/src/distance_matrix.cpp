@@ -13,10 +13,9 @@ using namespace std;
 DMatrix::DMatrix(std::istream& is, const double RonArr, const double RoffArr, const double RonTr, const double RoffTr, const double Rw, const int BitPrec, const int ArrSize)
   : DtoR_ratio(1), input_path(is), RonArr(RonArr), RoffArr(RoffArr), RonTr(RonTr), RoffTr(RoffTr), Rw(Rw), BitPrec(BitPrec), ArrSize(ArrSize){}
 DMatrix::~DMatrix() {}
-std::tuple<std::vector<double>, std::vector<double>,std::vector<double>, std::vector<double>, std::vector<double>> DMatrix::getDMatrix(std::istream& is, const int Oid, const bool is_realistic) {
+std::tuple<std::vector<double>, std::vector<double>,std::vector<double>, std::vector<double>, std::vector<double>> DMatrix::getDMatrix(std::istream& is, const bool is_realistic) {
 
   is.clear();
-  //is.seekg(2);
   
   int nCity = sqrt(ArrSize);
   if (nCity > 9) is.seekg(2);
@@ -26,7 +25,7 @@ std::tuple<std::vector<double>, std::vector<double>,std::vector<double>, std::ve
   vector<vector<double>> XY(nCity, CITY);
   double x, y, z;
   
-  rep (i, Oid, nCity) {
+  rep (i, 0, nCity) {
     //cout << i << '\n';
     is >> x >> y >> z;
       XY[i][0] = x;
@@ -65,14 +64,11 @@ std::tuple<std::vector<double>, std::vector<double>,std::vector<double>, std::ve
       continue;
     }
     else {
-      //Gm[i][j] = floor((1 - Rm[i][j]/DistMax)*FullPrec);
       Gm[i][j] = floor((DistMin/Rm[i][j])*FullPrec);
-      //Gm[i][j] = floor(((DistMax - Rm[i][j])/(DistMax-DistMin))*FullPrec);
     }
   }
   // Mapping the quantized Distances onto (BitPrec) of binary arrays considering the parasitic resistance according to each position.
   std::vector<int> BW (ArrSize*BitPrec);
-  //BW.reserve(ArrSize*BitPrec);
   rep(b,BitPrec) {
     rep(i,nCity) rep(j,nCity) {
       BW[b*ArrSize + i*nCity + j] = Gm[i][j] % 2;
@@ -87,21 +83,12 @@ std::tuple<std::vector<double>, std::vector<double>,std::vector<double>, std::ve
     rep(b,BitPrec) {
       rep(i,nCity) rep(j,nCity) {
         if (BW[b*ArrSize + i*nCity + j]==1) {
-          //BWC.push_back(pow(2,b)*1/(RonTr+RonArr+Rw*(i+nCity-1-j)));
-          //BWC_Paras.push_back(pow(2,b)*1/(RoffTr+RonArr+Rw*(i+nCity-1-j)));
-          
           BWC.push_back(pow(2,b)*1/(RonTr+RonArr+Rw*(i+nCity-1-j+(BitPrec-b-1)*12)));
           BWC_Paras.push_back(pow(2,b)*1/(RoffTr+RonArr+Rw*(i+nCity-1-j+(BitPrec-b-1)*12)));
-          //BWC.push_back(RonArr);
         }
         else {
-          //BWC.push_back(pow(2,b)*1/(RonTr+RoffArr+Rw*(i+nCity-1-j)));
-          //BWC_Paras.push_back(pow(2,b)*1/(RoffTr+RoffArr+Rw*(i+nCity-1-j)));
-          
           BWC.push_back(pow(2,b)*1/(RonTr+RoffArr+Rw*(i+nCity-1-j+(BitPrec-b-1)*12)));
           BWC_Paras.push_back(pow(2,b)*1/(RoffTr+RoffArr+Rw*(i+nCity-1-j+(BitPrec-b-1)*12)));
-
-          //BWC.push_back(RoffArr);
         }
       }
     }
@@ -125,7 +112,6 @@ std::tuple<std::vector<double>, std::vector<double>,std::vector<double>, std::ve
       continue;
     }
     else {
-      //Gm[i][j] = floor(((Rm[i][j]-DistMin)/(DistMax-DistMin))*FullPrec);
       Gm[i][j] = floor((Rm[i][j]/DistMax)*FullPrec);
     }
   }
@@ -155,6 +141,4 @@ std::tuple<std::vector<double>, std::vector<double>,std::vector<double>, std::ve
   }
   //return make_tuple(BWC, BWC_Paras, BWG, BWG_Paras, DM);
   return make_tuple(BWC, BWC_Paras, DM, BWG_Paras, DM);
-  ////////////////////////////////////////////////
-  //return make_tuple(BWC, BWC_Paras);
 }
