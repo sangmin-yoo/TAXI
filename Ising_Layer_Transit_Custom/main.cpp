@@ -18,65 +18,100 @@ int main(int argc, char* argv[]) {
     ios::sync_with_stdio(false);
     cin.tie(nullptr);
 
-    // Check for correct usage
-    if (argc != 2) {
-        cerr << "Usage: " << argv[0] << " <input_file>\n";
+    // Check for correct usage: now expect two arguments
+    if (argc != 3) {
+        cerr << "Usage: " << argv[0] << " <points_input_file> <matrix_input_file>\n";
         return 1;
     }
 
-    string input_file = argv[1];
-    // Derive output file name by replacing .in with .out if present, else append .out
+    string points_input_file = argv[1];
+    string matrix_input_file = argv[2];
+
+    // Derive output file name by replacing .in with .out if present in the first input file
+    // else append .out
     string output_file;
     {
-        size_t pos = input_file.rfind(".in");
-        if (pos != string::npos && pos + 3 == input_file.size()) {
-            output_file = input_file.substr(0, pos) + ".out";
+        size_t pos = points_input_file.rfind(".in");
+        if (pos != string::npos && pos + 3 == points_input_file.size()) {
+            output_file = points_input_file.substr(0, pos) + ".out";
         } else {
-            output_file = input_file + ".out";
+            output_file = points_input_file + ".out";
         }
     }
 
-    // Open input file
-    ifstream infile(input_file);
-    if (!infile.is_open()) {
-        cerr << "Error: Unable to open file " << input_file << "\n";
+    // Open points input file
+    ifstream points_infile(points_input_file);
+    if (!points_infile.is_open()) {
+        cerr << "Error: Unable to open points file " << points_input_file << "\n";
         return 1;
     }
 
     // Read number of points
     int N;
-    infile >> N;
+    points_infile >> N;
     if (N % 2 != 0) {
         cerr << "Error: N must be even.\n";
         return 1;
     }
 
     // Read points data
-    // Store both the raw lines and the parsed data
     vector<string> point_lines(N + 1); // 1-based indexing
     vector<Point> points(N + 1); // 1-based indexing
-    string line;
-    getline(infile, line); // Consume the remaining newline after N
+    {
+        string line;
+        getline(points_infile, line); // Consume the remaining newline after N
 
-    for (int i = 1; i <= N; i++) {
-        if (!getline(infile, line)) {
-            cerr << "Error: Not enough point data in the input file.\n";
-            return 1;
+        for (int i = 1; i <= N; i++) {
+            if (!getline(points_infile, line)) {
+                cerr << "Error: Not enough point data in the points file.\n";
+                return 1;
+            }
+            point_lines[i] = line;
+            // Parse the line into x, y, info
+            double x, y;
+            int info;
+            stringstream ss(line);
+            ss >> x >> y >> info;
+            if (ss.fail()) {
+                cerr << "Error: Invalid point format at line " << (i + 1) << ".\n";
+                return 1;
+            }
+            points[i] = Point{x, y, info};
         }
-        point_lines[i] = line;
-        // Parse the line into x, y, info
-        double x, y;
-        int info;
-        // Use stringstream for parsing
-        stringstream ss(line);
-        ss >> x >> y >> info;
-        if (ss.fail()) {
-            cerr << "Error: Invalid point format at line " << i + 1 << ".\n";
-            return 1;
-        }
-        points[i] = Point{ x, y, info };
     }
-    infile.close();
+    points_infile.close();
+
+    // Now read the matrix from the second file argument
+    ifstream matrix_infile(matrix_input_file);
+    if (!matrix_infile.is_open()) {
+        cerr << "Error: Unable to open matrix file " << matrix_input_file << "\n";
+        return 1;
+    }
+
+    int rows, cols;
+    if (!(matrix_infile >> rows >> cols)) {
+        cerr << "Error: Unable to read matrix dimensions.\n";
+        return 1;
+    }
+
+    if (rows <= 0 || cols <= 0) {
+        cerr << "Error: Invalid matrix dimensions.\n";
+        return 1;
+    }
+
+    vector<vector<double>> matrix(rows, vector<double>(cols));
+
+    // Read the matrix rows
+    for (int r = 0; r < rows; r++) {
+        for (int c = 0; c < cols; c++) {
+            if (!(matrix_infile >> matrix[r][c])) {
+                cerr << "Error: Not enough data to fill the matrix.\n";
+                return 1;
+            }
+        }
+    }
+
+    matrix_infile.close();
 
     // Form pairs: (1,2), (3,4), ..., (N-1,N)
     int pair_count = N / 2;
@@ -103,7 +138,10 @@ int main(int argc, char* argv[]) {
             }
             else {
                 if (points[i].info == points[j].info) {
-                    D[i][j] = dist_points(points[i], points[j]); // Euclidean distance
+                    if (matrix[i-1][j-1] == -1)
+                        cerr<<i<<" "<<j<<" Incompatible distance value"<<endl;
+                    //D[i][j] = dist_points(points[i], points[j]); // Euclidean distance
+                    D[i][j] = matrix[i-1][j-1]; // Custom distance
                 }
                 else {
                     D[i][j] = INF; // Incompatible info values
