@@ -3,7 +3,6 @@
 import os
 import sys
 import argparse
-import random
 import numpy as np
 import torch
 import torch.nn as nn
@@ -14,31 +13,31 @@ from torch_geometric.loader import DataLoader
 from scipy.spatial import cKDTree
 from tqdm import tqdm
 import matplotlib
-matplotlib.use('Agg')  # For remote plotting without GUI
+matplotlib.use('Agg')  # Important for remote plotting without GUI
 import matplotlib.pyplot as plt
+import torch.distributed as dist
+import torch.multiprocessing as mp
+from torch.nn.parallel import DistributedDataParallel as DDP
 
 #########################################
-# ARGPARSE FOR GPU ID
+# ARGPARSE
 #########################################
-parser = argparse.ArgumentParser(description="TSP GNN Training Script")
-parser.add_argument("--gpu_id", type=int, default=0,
-                    help="Index of the single GPU to use, e.g. 0")
+parser = argparse.ArgumentParser(description="TSP GNN DDP Training Script")
+parser.add_argument("--gpu_ids", type=str, default="0", 
+                    help="Comma-separated list of GPU IDs, e.g. '0,1' or '0,1,2,3'")
+parser.add_argument("--logfile", type=str, default="train.log",
+                    help="Output log file name")
+parser.add_argument("--epochs", type=int, default=1,
+                    help="Number of epochs to train")
+parser.add_argument("--rebuild_data", action="store_true",
+                    help="Whether to rebuild the dataset from TSP files")
 args = parser.parse_args()
 
-gpu_id = args.gpu_id
+# We'll parse the GPU IDs:
+gpu_ids = [int(x) for x in args.gpu_ids.split(",") if x.strip().isdigit()]
 
 ##################################################
-# GPU SELECTION
-##################################################
-if torch.cuda.is_available():
-    device_str = f"cuda:{gpu_id}"
-else:
-    device_str = "cpu"
-device = torch.device(device_str)
-print(f"Using device: {device}")
-
-##################################################
-# PARSE TSP FILE (PER-INSTANCE x_mid, y_mid)
+# 1. PARSE TSP FILE (PER-INSTANCE x_mid, y_mid)
 ##################################################
 
 def parse_tsp_file(file_path):
@@ -97,7 +96,7 @@ def parse_tsp_file(file_path):
     return instances
 
 ##################################################
-# HELPER FUNCTIONS
+# 2. HELPER FUNCTIONS
 ##################################################
 from scipy.spatial import cKDTree
 
@@ -132,10 +131,7 @@ def is_axis_close(x, y, x_mid, y_mid, d_x, d_y):
     return (abs(x - x_mid) <= d_x) or (abs(y - y_mid) <= d_y)
 
 def compute_instance_dist_threshold(points, x_mid, y_mid, d_x, d_y, percentile=90):
-    axis_close_mask = [
-        is_axis_close(x, y, x_mid, y_mid, d_x, d_y)
-        for (x,y) in points
-    ]
+    axis_close_mask = [is_axis_close(x, y, x_mid, y_mid, d_x, d_y) for (x,y) in points]
     axis_close_indices = [i for i, flag in enumerate(axis_close_mask) if flag]
 
     if len(axis_close_indices) < 2:
@@ -168,10 +164,7 @@ def build_graph_instance(points, x_mid, y_mid, d_x, d_y, k=3,
     N = len(points)
     quads = [quadrant(x, y, x_mid, y_mid) for (x,y) in coords]
 
-    axis_close_mask = [
-        is_axis_close(x, y, x_mid, y_mid, d_x, d_y)
-        for (x,y) in coords
-    ]
+    axis_close_mask = [is_axis_close(x, y, x_mid, y_mid, d_x, d_y) for (x,y) in coords]
     if solution_edges is not None and add_solution_edges:
         for (u, v) in solution_edges:
             if quads[u] != quads[v]:
@@ -182,9 +175,9 @@ def build_graph_instance(points, x_mid, y_mid, d_x, d_y, k=3,
 
     quad_points = [[] for _ in range(4)]
     quad_indices = [[] for _ in range(4)]
-    for i, (x,y) in enumerate(coords):
+    for i, (xx,yy) in enumerate(coords):
         Q = quads[i]
-        quad_points[Q].append((x,y))
+        quad_points[Q].append((xx,yy))
         quad_indices[Q].append(i)
 
     quad_points = [np.array(qp) if len(qp)>0 else np.zeros((0,2)) for qp in quad_points]
@@ -235,7 +228,7 @@ def build_graph_instance(points, x_mid, y_mid, d_x, d_y, k=3,
     return data
 
 ##################################################
-# DEEP GNN MODEL
+# 3. DEEP GNN MODEL
 ##################################################
 class EdgeClassifierGNN(nn.Module):
     def __init__(self, in_channels=2, hidden_dim=256, num_layers=15):
@@ -279,28 +272,12 @@ class EdgeClassifierGNN(nn.Module):
         return out
 
 ##################################################
-# TRAIN & EVAL
+# 4. TRAIN & EVAL
 ##################################################
 
-def train_epoch(model, train_data_list, optimizer, criterion, device, epoch_num):
-    """
-    Modified training procedure:
-      - Randomly sample 10k from the million training instances
-      - Split into 500 mini-batches of 20 each
-      - Optimize with Adam(lr=0.001) on each mini-batch
-    """
+def train_epoch(model, loader, optimizer, criterion, device, epoch_num):
     model.train()
     total_loss = 0
-
-    # 1) Randomly sample 10k from the entire training dataset
-    #    (We assume train_data_list has >= 1e6 items.)
-    subset_size = 10000
-    batch_size = 20
-    subset = random.sample(train_data_list, subset_size)
-
-    # 2) Create a loader for those 10k, with mini-batch size=20
-    loader = DataLoader(subset, batch_size=batch_size, shuffle=True)
-
     loader_iter = tqdm(loader, desc=f"Epoch {epoch_num} (Train)")
     for data in loader_iter:
         data = data.to(device)
@@ -310,7 +287,6 @@ def train_epoch(model, train_data_list, optimizer, criterion, device, epoch_num)
         loss.backward()
         optimizer.step()
         total_loss += loss.item()
-
     return total_loss / len(loader)
 
 def evaluate(model, loader, criterion, device, mode="Val"):
@@ -355,10 +331,39 @@ def lr_scheduler(optimizer, new_val_loss, best_val_loss, decay_factor=1.01):
         return new_val_loss, True
 
 ##################################################
-# MAIN
+# 5. DDP SETUP
 ##################################################
+def ddp_setup(rank, world_size):
+    """
+    Initialize the default process group for DDP on rank=rank, total=world_size
+    We'll use 'nccl' backend. 
+    Assume the environment variables MASTER_ADDR, MASTER_PORT are set.
+    """
+    dist.init_process_group(
+        backend="nccl", 
+        init_method="env://",
+        world_size=world_size,
+        rank=rank
+    )
+    torch.cuda.set_device(rank)
 
-def main():
+def cleanup():
+    dist.destroy_process_group()
+
+##################################################
+# 6. PER-PROCESS MAIN
+##################################################
+def main_worker(rank, world_size, args):
+    """
+    Each GPU runs this function in a separate process.
+    """
+    ddp_setup(rank, world_size)
+
+    device = torch.device(f"cuda:{rank}" if torch.cuda.is_available() else "cpu")
+
+    # Now the rest of the logic remains mostly the same as single-gpu,
+    # except we wrap the model in DDP.
+
     problem_size = 50
     train_file = f"tsp-data/tsp{problem_size}_train_concorde.txt"
     val_file   = f"tsp-data/tsp{problem_size}_val_concorde.txt"
@@ -367,10 +372,14 @@ def main():
     percentile_axis_close = 20
     percentile_dist = 50
     k_nn = 3
-    rebuild_data = False
-    epochs = 30
+    rebuild_data = args.rebuild_data
+    epochs = args.epochs
 
-    if rebuild_data:
+    if rebuild_data and rank==0:
+        # We'll only parse and build data on rank=0, then we can broadcast or 
+        # just let each rank load from the same .pt files. 
+        # For simplicity, do the same logic on each rank, but it might be less efficient.
+
         train_instances = parse_tsp_file(train_file)
         val_instances   = parse_tsp_file(val_file)
         test_instances  = parse_tsp_file(test_file)
@@ -396,82 +405,142 @@ def main():
         val_data_list   = build_dataset(val_instances,   is_train=False)
         test_data_list  = build_dataset(test_instances,  is_train=False)
 
-        torch.save(train_data_list, f"tsp-data/tsp{problem_size}_train_concorde.pt")
-        torch.save(val_data_list,   f"tsp-data/tsp{problem_size}_val_concorde.pt")
-        torch.save(test_data_list,  f"tsp-data/tsp{problem_size}_test_concorde.pt")
+        # Save .pt files. 
+        if rank==0:
+            torch.save(train_data_list, f"tsp-data/tsp{problem_size}_train_concorde.pt")
+            torch.save(val_data_list,   f"tsp-data/tsp{problem_size}_val_concorde.pt")
+            torch.save(test_data_list,  f"tsp-data/tsp{problem_size}_test_concorde.pt")
+        
+        dist.barrier()  # Let rank=0 finish saving before others load
     else:
+        # load
         train_data_list = torch.load(f"tsp-data/tsp{problem_size}_train_concorde.pt")
         val_data_list   = torch.load(f"tsp-data/tsp{problem_size}_val_concorde.pt")
         test_data_list  = torch.load(f"tsp-data/tsp{problem_size}_test_concorde.pt")
 
-    # We do NOT create a standard train_loader of all data:
-    # We'll do random sampling each epoch in train_epoch
+    from torch_geometric.loader import DataLoader
+    train_loader = DataLoader(train_data_list, batch_size=32, shuffle=True)
+    val_loader   = DataLoader(val_data_list,   batch_size=1,  shuffle=False)
+    test_loader  = DataLoader(test_data_list,  batch_size=1,  shuffle=False)
 
-    val_loader   = DataLoader(val_data_list,   batch_size=512,  shuffle=False)
-    test_loader  = DataLoader(test_data_list,  batch_size=512,  shuffle=False)
+    model = EdgeClassifierGNN(in_channels=2, hidden_dim=256, num_layers=15).to(device)
 
-    base_model = EdgeClassifierGNN(in_channels=2, hidden_dim=256, num_layers=10).to(device)
-    # Adam with initial LR=0.001
-    optimizer = torch.optim.Adam(base_model.parameters(), lr=1e-3)
+    # Wrap in DDP
+    ddp_model = DDP(model, device_ids=[rank], output_device=rank)
+
+    optimizer = torch.optim.Adam(ddp_model.parameters(), lr=1e-3)
     criterion = nn.BCELoss()
 
     best_val_loss = float('inf')
     train_loss_history = []
     val_loss_history   = []
-    val_precision_history = []
-    val_recall_history    = []
-    val_f1_history        = []
 
+    # We'll do a minimal approach: only rank=0 plots 
+    # (others won't produce final images).
     for epoch in range(epochs):
-        # Modified train_epoch: random sample 10k from train_data_list, do mini-batches of 20
-        train_loss = train_epoch(base_model, train_data_list, optimizer, criterion, device, epoch)
-        val_loss, val_prec, val_rec, val_f1 = evaluate(base_model, val_loader, criterion, device, "Val")
+        # train
+        ddp_model.train()
+        train_loss = 0
+        tloader_iter = tqdm(train_loader, desc=f"(Rank {rank}) Epoch {epoch} Train")
+        for data in tloader_iter:
+            data = data.to(device)
+            optimizer.zero_grad()
+            out = ddp_model(data.x, data.edge_index)
+            loss = criterion(out, data.y)
+            loss.backward()
+            optimizer.step()
+            train_loss += loss.item()
+        train_loss /= len(train_loader)
 
-        train_loss_history.append(train_loss)
-        val_loss_history.append(val_loss)
-        val_precision_history.append(val_prec)
-        val_recall_history.append(val_rec)
-        val_f1_history.append(val_f1)
+        # evaluate
+        ddp_model.eval()
+        val_loss = 0
+        vloader_iter = tqdm(val_loader, desc=f"(Rank {rank}) Val", leave=False)
+        with torch.no_grad():
+            for data in vloader_iter:
+                data = data.to(device)
+                out = ddp_model(data.x, data.edge_index)
+                loss = criterion(out, data.y)
+                val_loss += loss.item()
+        val_loss /= len(val_loader)
 
-        print(f"[Epoch {epoch}] Train Loss: {train_loss:.4f}, "
-              f"Val Loss: {val_loss:.4f}, Prec: {val_prec:.4f}, "
-              f"Recall: {val_rec:.4f}, F1: {val_f1:.4f}")
-
+        # Optionally do the LR check 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
         else:
             _, improved = lr_scheduler(optimizer, val_loss, best_val_loss, decay_factor=1.01)
 
+        if rank == 0:
+            train_loss_history.append(train_loss)
+            val_loss_history.append(val_loss)
+            print(f"[Epoch {epoch}] Train Loss: {train_loss:.4f}, Val Loss: {val_loss:.4f}")
+
     # Final test
-    test_loss, test_precision, test_recall, test_f1 = evaluate(base_model, test_loader, criterion, device, "Test")
-    print(f"Final Test Loss: {test_loss:.4f}, Test Prec: {test_precision:.4f}, "
-          f"Test Recall: {test_recall:.4f}, Test F1: {test_f1:.4f}")
+    # Typically you'd do a single rank=0 or do it on all ranks, but let's do rank=0:
+    dist.barrier()
+    if rank == 0:
+        ddp_model.eval()
+        test_loss = 0
+        tloader_iter = tqdm(test_loader, desc="Test", leave=False)
+        with torch.no_grad():
+            for data in tloader_iter:
+                data = data.to(device)
+                out = ddp_model(data.x, data.edge_index)
+                loss = criterion(out, data.y)
+                test_loss += loss.item()
+        test_loss /= len(test_loader)
+        print(f"Final Test Loss: {test_loss:.4f}")
 
-    # PLOT & SAVE
-    plt.figure(figsize=(8,6))
-    plt.title("Train & Validation Loss")
-    plt.plot(train_loss_history, label='Train Loss')
-    plt.plot(val_loss_history,   label='Val Loss')
-    plt.xlabel("Epoch")
-    plt.ylabel("Loss")
-    plt.legend()
-    plt.grid(True)
-    plt.savefig("train_val_loss.png", dpi=150)
-    plt.close()
+        # Plot & Save
+        plt.figure(figsize=(8,6))
+        plt.title("Train & Validation Loss")
+        plt.plot(train_loss_history, label='Train Loss')
+        plt.plot(val_loss_history,   label='Val Loss')
+        plt.xlabel("Epoch")
+        plt.ylabel("Loss")
+        plt.legend()
+        plt.grid(True)
+        plt.savefig("train_val_loss.png", dpi=150)
+        plt.close()
+        print("Plot saved: train_val_loss.png")
 
-    plt.figure(figsize=(8,6))
-    plt.title("Validation Metrics")
-    plt.plot(val_precision_history, label='Val Precision')
-    plt.plot(val_recall_history,    label='Val Recall')
-    plt.plot(val_f1_history,        label='Val F1')
-    plt.xlabel("Epoch")
-    plt.ylabel("Metric")
-    plt.legend()
-    plt.grid(True)
-    plt.savefig("val_metrics.png", dpi=150)
-    plt.close()
+    cleanup()
 
-    print("All done. Exiting.")
+##################################################
+# 7. MAIN
+##################################################
+
+def main():
+    # We'll do a DDP approach
+    # We rely on torch.distributed.run or torchrun
+    # E.g.:
+    #   torchrun --nproc_per_node=2 script.py --gpu_ids=2,3 --logfile=run.log
+    #
+    # We read WORLD_SIZE, RANK or LOCAL_RANK from environment
+    # nproc_per_node sets how many processes we spawn.
+
+    # parse world_size from the env
+    world_size = len(gpu_ids)
+    if world_size < 1:
+        print("No valid GPUs. Falling back to 1 CPU process.")
+        world_size = 1
+
+    # If we have > 1, we do the distributed approach
+    # We'll look for 'LOCAL_RANK' to see if we are in a child process
+    if "LOCAL_RANK" in os.environ:
+        # child process
+        rank = int(os.environ["LOCAL_RANK"])
+        main_worker(rank, world_size, args)
+    else:
+        # We might be rank=0 or might be single-process
+        if world_size == 1:
+            # single-process
+            main_worker(rank=0, world_size=1, args=args)
+        else:
+            # user is expected to do torchrun --nproc_per_node= world_size ...
+            # but if they do python script directly, we can't do multi-proc automatically
+            print("Please launch via torchrun or python -m torch.distributed.run with --nproc_per_node.")
+
 
 if __name__ == "__main__":
     main()
