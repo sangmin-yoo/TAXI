@@ -1,4 +1,5 @@
 #!/bin/bash
 
-nohup python gnn_train_cmdline.py --gpu_id 3 > gnntrain.log 2>&1 &
+
+nohup python gnn_train_cmdline_saving.py > gnntrain.log 2>&1 &
 
