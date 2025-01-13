@@ -1,9 +1,9 @@
 # Compiler and flags
-CXX = g++-14
-CXXFLAGS = -std=c++14 -Wall -O2 -arch arm64
+CXX = g++
+CXXFLAGS = -std=c++14 -Wall
 
 # Target executable name
-TARGET = ising_mac_transit_custom
+TARGET = ising_mac_transit_custom_linux
 
 # Source files
 SRCS = main.cpp
