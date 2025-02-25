@@ -1,6 +1,8 @@
 # TAXI: Traveling Salesman Problem Accelerator with X-bar-based Ising Macros Powered by SOT-MRAMs and Hierarchical Clustering
 
-This repository is the space to design a Taveling Salesman Problem (TSP) Accelerator with X-bar-based Ising Macros for the large-scale TSP.
+This repository is the space to design a Traveling Salesman Problem (TSP) Accelerator with X-bar-based Ising Macros for large-scale TSPs.
+
+![image info](Images/Figure1.pdf)
 
 In "TAXI.ipynb", a TSPlib is clustered, then solved depending on the type of Ising-Solver configured by "MAC_ising" from the higher-level clusters to the lower-level clusters.
 
