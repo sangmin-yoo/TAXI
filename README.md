@@ -15,7 +15,8 @@ In the paper, "ising_MAC" is simulated at the circuit level for latency and ener
 If you find TAXI useful for your work, please cite the following source:
 ```
 @article{yoo2025TAXI,
-        title   =  {TAXI: Traveling Salesman Problem Accelerator with X-bar-based Ising Macros Powered by SOT-MRAMs and Hierarchical Clustering},
+        title   =  {TAXI: Traveling Salesman Problem Accelerator with X-bar-based Ising Macros\
+                    Powered by SOT-MRAMs and Hierarchical Clustering},
         author  =  {Yoo, Sangmin and Holla, Amod and Sanyal, Sourav and Kim, Dong Eun
                     and Iacopi, Francesca and Biswas, Dwaipayan and Myers, James and Roy, Kaushik},
         journal = {Proceedings of the 62nd ACM/IEEE Design Automation Conference (DAC)},
