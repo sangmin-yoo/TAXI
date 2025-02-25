@@ -14,7 +14,7 @@ In "TAXI.ipynb", a TSPlib is clustered, then solved depending on the type of Isi
 
 If you find TAXI useful for your work, please cite the following source:
 
-@article{eshraghian2021training,
+@article{eshraghian2021training,\
         title   =  {TAXI: Traveling Salesman Problem Accelerator with X-bar-based Ising Macros Powered by SOT-MRAMs and Hierarchical Clustering},
         author  =  {Yoo, Sangmin and Holla, Amod and Sanyal, Sourav and Kim, Dong Eun
                     and Iacopi, Francesca and Biswas, Dwaipayan and Myers, James and Roy, Kaushik},
