@@ -8,6 +8,8 @@ In "TAXI.ipynb", a TSPlib specified is clustered by agglomeration clustering, th
 1. ising_MAC is a c++ program coded by "Ising_Layer_MAC". It is based on Ising Macros with SOT-MRAM stochastic switching characteristics.
 2. ising_RNG is a c++ program coded by "Ising_Layer-RNG". It solves the TSPs by generating random numbers by CMOS-based RNG and flipping random spins.
 
+In the paper, "ising_MAC" is simulated at the circuit level for latency and energy consumption based on TSMC 65nm technology and the SOT-MRAM Verilog-A model.
+
 ## Citation
 
 If you find TAXI useful for your work, please cite the following source:
