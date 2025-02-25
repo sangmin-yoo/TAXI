@@ -1,6 +1,6 @@
 # TAXI: Traveling Salesman Problem Accelerator with X-bar-based Ising Macros Powered by SOT-MRAMs and Hierarchical Clustering
 
-This repository is the space to design a Traveling Salesman Problem (TSP) Accelerator with X-bar-based Ising Macros for large-scale TSPs. The backbone of the code is from [Neuro-Ising](https://github.com/souravsanyal06/Neuro-Ising).
+This repository is the space to design a Traveling Salesman Problem (TSP) Accelerator with X-bar-based Ising Macros for large-scale TSPs. The backbone of this repository is [Neuro-Ising](https://github.com/souravsanyal06/Neuro-Ising).
 
 ![TAXI_Overview](Images/TAXI_main.png)
 
