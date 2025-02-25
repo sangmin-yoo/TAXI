@@ -12,7 +12,7 @@ In "TAXI.ipynb", a TSPlib specified is clustered by agglomeration clustering, th
 
 If you find TAXI useful for your work, please cite the following source:
 ```
-@article{sangmin2025TAXI,
+@article{yoo2025TAXI,
         title   =  {TAXI: Traveling Salesman Problem Accelerator with X-bar-based Ising Macros Powered by SOT-MRAMs and Hierarchical Clustering},
         author  =  {Yoo, Sangmin and Holla, Amod and Sanyal, Sourav and Kim, Dong Eun
                     and Iacopi, Francesca and Biswas, Dwaipayan and Myers, James and Roy, Kaushik},
