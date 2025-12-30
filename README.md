@@ -19,9 +19,8 @@ If you find TAXI useful for your work, please cite the following source:
         author  =  {Yoo, Sangmin and Holla, Amod and Sanyal, Sourav and Kim, Dong Eun
                     and Iacopi, Francesca and Biswas, Dwaipayan and Myers, James and Roy, Kaushik},
         journal = {Proceedings of the 62nd ACM/IEEE Design Automation Conference (DAC)},
-        volume  = {TBD},
-        number  = {TBD},
-        pages   = {TBD},
+        number  = {60},
+        pages   = {1-7},
         year    = {2025}
 }
 ```
